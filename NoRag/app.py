@@ -1,5 +1,3 @@
-# app.py
-
 import streamlit as st
 import os
 from services import stt_service, dream_analyzer_service, image_generator_service
@@ -39,8 +37,14 @@ uploaded_file = st.file_uploader(
 if uploaded_file is not None:
     # 2. 음성 -> 텍스트 변환
     if st.session_state.dream_text == "":
-        # 임시 파일로 저장하여 STT 서비스에 전달
-        audio_path = os.path.join("user_data/audio", uploaded_file.name)
+        # 저장할 폴더 경로와 전체 파일 경로를 정의
+        audio_dir = "user_data/audio"
+        audio_path = os.path.join(audio_dir, uploaded_file.name)
+
+        # 폴더가 존재하는지 확인하고, 없으면 자동으로 생성
+        os.makedirs(audio_dir, exist_ok=True)
+
+        # 파일 저장
         with open(audio_path, "wb") as f:
             f.write(uploaded_file.getbuffer())
 
@@ -71,14 +75,14 @@ if st.session_state.dream_text:
     with col2:
         if st.button("✨ 재구성된 꿈 이미지 보기"):
             with st.spinner("악몽을 긍정적인 꿈으로 재구성하는 중... 🌈"):
-                 # 재구성 프롬프트 생성
+                # 재구성 프롬프트 생성
                 reconstructed_prompt = dream_analyzer_service.create_reconstructed_prompt(st.session_state.dream_text)
                 st.session_state.reconstructed_prompt = reconstructed_prompt
                 # 이미지 생성
                 reconstructed_image_url = image_generator_service.generate_image_from_prompt(reconstructed_prompt)
                 st.session_state.reconstructed_image_url = reconstructed_image_url
 
-# 4. 생성된 이미지 표시
+# 4. 생성된 이미지 표시 (오류 처리 로직 포함)
 if st.session_state.nightmare_image_url or st.session_state.reconstructed_image_url:
     st.markdown("---")
     st.subheader("생성된 꿈 이미지")
@@ -87,12 +91,21 @@ if st.session_state.nightmare_image_url or st.session_state.reconstructed_image_
 
     with img_col1:
         if st.session_state.nightmare_image_url:
-            st.image(st.session_state.nightmare_image_url, caption="악몽 시각화")
-            with st.expander("생성 프롬프트 보기"):
-                st.write(st.session_state.nightmare_prompt)
+            # [수정됨] 반환된 값이 URL인지, 아니면 오류 메시지인지 확인
+            if st.session_state.nightmare_image_url.startswith("http"):
+                st.image(st.session_state.nightmare_image_url, caption="악몽 시각화")
+                with st.expander("생성 프롬프트 보기"):
+                    st.write(st.session_state.nightmare_prompt)
+            else:
+                # URL이 아니라면 오류 메시지로 판단하고 화면에 텍스트로 표시
+                st.error(f"악몽 이미지 생성 실패: {st.session_state.nightmare_image_url}")
 
     with img_col2:
         if st.session_state.reconstructed_image_url:
-            st.image(st.session_state.reconstructed_image_url, caption="재구성된 꿈")
-            with st.expander("생성 프롬프트 보기"):
-                st.write(st.session_state.reconstructed_prompt)
+            # [수정됨] 재구성된 꿈 이미지에도 동일하게 적용
+            if st.session_state.reconstructed_image_url.startswith("http"):
+                st.image(st.session_state.reconstructed_image_url, caption="재구성된 꿈")
+                with st.expander("생성 프롬프트 보기"):
+                    st.write(st.session_state.reconstructed_prompt)
+            else:
+                st.error(f"재구성된 꿈 이미지 생성 실패: {st.session_state.reconstructed_image_url}")
