@@ -39,7 +39,7 @@ def generate_image_from_prompt(prompt_text: str) -> str:
     try:
         print("[DEBUG] 2차 안전성 검사 통과. DALL-E 이미지 생성 시작...")
         response = client.images.generate(
-            model="dall-e-3",
+            model="dall-e-2",
             prompt=prompt_text,
             size="1024x1024",
             quality="standard",
