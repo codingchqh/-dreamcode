@@ -1,6 +1,6 @@
 import streamlit as st
 import os
-from services import stt_service, dream_analyzer_service, image_generator_service
+from services import stt_service, dream_analyzer_service, image_generator_service, moderation_service
 
 # --- 페이지 설정 ---
 st.set_page_config(
@@ -28,11 +28,12 @@ st.write("당신의 악몽을 음성으로 들려주세요. 긍정적인 꿈으�
 # 1. 음성 파일 업로드
 uploaded_file = st.file_uploader(
     "여기에 악몽 음성 파일을 업로드하세요 (MP3, WAV, M4A 등)",
-    type=['mp3', 'wav', 'm4a', 'ogg']
+    type=['mp3', 'wav', 'm4a', 'ogg'],
+    key="dream_uploader"  # [수정됨] 중복 생성 오류를 막기 위한 고유 key 추가
 )
 
 if uploaded_file is not None:
-    # 2. 음성 -> 텍스트 변환
+    # 2. 음성 -> 텍스트 변환 및 안전성 검사
     if st.session_state.dream_text == "":
         audio_dir = "user_data/audio"
         audio_path = os.path.join(audio_dir, uploaded_file.name)
@@ -41,9 +42,15 @@ if uploaded_file is not None:
         with open(audio_path, "wb") as f:
             f.write(uploaded_file.getbuffer())
 
-        with st.spinner("음성을 텍스트로 변환하는 중입니다... 🧙‍♂️"):
+        with st.spinner("음성을 텍스트로 변환하고 안전성을 검사하는 중입니다... 🕵️‍♂️"):
             transcribed_text = stt_service.transcribe_audio(audio_path)
-            st.session_state.dream_text = transcribed_text
+            safety_result = moderation_service.check_text_safety(transcribed_text)
+
+            if safety_result["flagged"]:
+                st.error(safety_result["text"])
+                st.session_state.dream_text = ""
+            else:
+                st.session_state.dream_text = safety_result["text"]
         
         os.remove(audio_path)
 
@@ -70,7 +77,7 @@ if st.session_state.dream_text:
                 reconstructed_image_url = image_generator_service.generate_image_from_prompt(reconstructed_prompt)
                 st.session_state.reconstructed_image_url = reconstructed_image_url
 
-# 4. 생성된 이미지 표시 (오류 처리 로직 포함)
+# 4. 생성된 이미지 표시
 if st.session_state.nightmare_image_url or st.session_state.reconstructed_image_url:
     st.markdown("---")
     st.subheader("생성된 꿈 이미지")
