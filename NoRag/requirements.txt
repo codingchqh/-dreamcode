@@ -1,7 +1,6 @@
-# requirements.txt
-
 streamlit
 openai
 python-dotenv
 langchain
 langchain-openai
+streamlit-audiorec
