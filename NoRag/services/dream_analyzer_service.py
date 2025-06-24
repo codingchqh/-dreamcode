@@ -2,7 +2,13 @@ import streamlit as st
 import os
 # services 임포트 부분에 moderation_service 추가
 from services import stt_service, dream_analyzer_service, image_generator_service, moderation_service
-
+from langchain_openai import ChatOpenAI
+from langchain.prompts import ChatPromptTemplate
+from langchain.pydantic_v1 import BaseModel, Field
+from langchain.output_parsers import PydanticOutputParser
+from typing import List
+from openai import OpenAI
+from core.config import API_KEY
 # --- 페이지 설정 ---
 st.set_page_config(
     page_title="보여dream | 당신의 악몽을 재구성합니다",
