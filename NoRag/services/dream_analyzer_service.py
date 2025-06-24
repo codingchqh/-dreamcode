@@ -31,14 +31,11 @@ keyword_extraction_prompt = ChatPromptTemplate.from_messages(
         ("human", "{dream_text}"),
     ]
 )
-
 keyword_extraction_chain = keyword_extraction_prompt | llm | retry_parser
 
 def create_nightmare_prompt(dream_text: str) -> str:
-    """
-    1. 꿈에서 키워드 추출 -> 2. 키워드를 직접 조합하여 단순한 프롬프트 생성
-    """
     try:
+        # --- 1단계: 키워드 추출 ---
         print("[DEBUG] 1단계: 꿈 내용 분석 및 키워드 추출 시작...")
         extracted_keywords: DreamKeywords = keyword_extraction_chain.invoke({
             "dream_text": dream_text,
@@ -46,42 +43,50 @@ def create_nightmare_prompt(dream_text: str) -> str:
         })
         print(f"[DEBUG] 추출된 키워드: {extracted_keywords}")
 
-        print("[DEBUG] 2단계: 키워드를 조합하여 단순 프롬프트 생성...")
+        # --- [최종 수정] 2단계: 키워드를 바탕으로 '짧은 문장' 프롬프트 생성 ---
+        print("[DEBUG] 2단계: 키워드를 바탕으로 DALL-E 2를 위한 짧은 문장 프롬프트 생성 시작...")
+        
+        sentence_prompt_template = ChatPromptTemplate.from_messages([
+            ("system", """
+            You are a master of concise, powerful prompts for the DALL-E 2 image model.
+            Your task is to combine the given dream keywords into a single, coherent English sentence.
 
-        prompt_parts = []
-        prompt_parts.extend(extracted_keywords.main_character)
-        prompt_parts.append(extracted_keywords.setting)
-        prompt_parts.extend(extracted_keywords.key_objects)
-        prompt_parts.append(extracted_keywords.action)
-        prompt_parts.append(extracted_keywords.atmosphere)
+            **CRITICAL CONSTRAINTS:**
+            1.  The final sentence MUST be less than 150 words to stay within the 1000-character limit of the DALL-E 2 API.
+            2.  Focus on combining the character, action, and setting into a clear narrative.
+            3.  Append a few key artistic styles at the end of the sentence.
+            4.  The final output must be ONLY the prompt sentence itself.
+            """),
+            ("human", """
+            Here are the key elements from the dream:
+            - Main Character(s): {main_character}
+            - Setting: {setting}
+            - Key Objects: {key_objects}
+            - Core Action: {action}
+            - Atmosphere: {atmosphere}
+            
+            Now, create one single descriptive sentence for DALL-E 2, ending with styles like 'in a Korean setting, dark, surreal, photorealistic, cinematic lighting'.
+            """)
+        ])
+
+        creative_llm = ChatOpenAI(model="gpt-4o", openai_api_key=API_KEY, temperature=0.7)
+        sentence_generation_chain = sentence_prompt_template | creative_llm
+        final_prompt = sentence_generation_chain.invoke(extracted_keywords.dict())
         
-        style_keywords = "in a Korean setting, dark, atmospheric, surreal, photorealistic, cinematic lighting, psychological horror style"
-        
-        final_prompt = ", ".join(prompt_parts) + ", " + style_keywords
-        
-        return final_prompt
+        return final_prompt.content.strip()
 
     except Exception as e:
         print(f"LangChain 프롬프트 생성 중 오류 발생: {e}")
         return "프롬프트를 생성하는 데 실패했습니다. 입력 내용을 확인해주세요."
 
 def create_reconstructed_prompt(dream_text: str) -> str:
-    """
-    [최종 테스트] 군인/군부대 키워드를 중립적인 단어로 대체하여 DALL-E 필터를 통과하는지 확인합니다.
-    """
+    # 이 함수는 정상 작동하므로 그대로 둡니다.
     system_prompt = """
     You are a wise and empathetic dream therapist. Your goal is to reframe the user's nightmare into an image of peace, healing, and hope.
-
-    **CRITICAL RULE: The user's dream may contain sensitive keywords like 'soldier' or 'military'. You MUST replace these keywords with neutral, non-military alternatives.**
-    - Replace 'soldier' with 'a young person', 'a figure', or 'an individual'.
-    - Replace 'military base' or 'barracks' with 'a peaceful retreat', 'a quiet minimalist room', or 'a communal cabin'.
-    - Maintain the original emotions and narrative arc (e.g., from distress to peace), but transpose them into a non-military setting.
-
-    **AESTHETIC:** The reinterpreted scene should have a serene, hopeful Korean aesthetic, using elements of nature, light, and modern minimalist design. Avoid overt traditional symbols unless relevant.
-
-    The final output must be a single-paragraph, English image prompt that is safe, positive, and completely free of military-related terms. **It must NOT contain any text, letters, or writing.**
+    **CRITICAL RULE: You must maintain the original characters and setting of the dream.** Replace sensitive keywords with neutral alternatives (e.g., 'soldier' becomes 'a young person').
+    **CONTEXT-AWARE KOREAN AESTHETIC:** Reinterpret the scene within a positive, modern Korean context relevant to the original dream. Avoid stereotypes.
+    The final output must be a single-paragraph, English image prompt that is safe and positive. **It must NOT contain any text or writing.**
     """
-    
     try:
         vanilla_client = OpenAI(api_key=API_KEY)
         response = vanilla_client.chat.completions.create(
