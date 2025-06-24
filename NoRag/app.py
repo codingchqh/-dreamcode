@@ -38,12 +38,8 @@ file_name = None
 
 with tab1:
     st.write("마이크 아이콘을 눌러 녹음을 시작/중지 하세요.")
-    # [수정됨] 녹음 위젯에 한국어 안내 문구(툴팁) 추가
-    wav_audio_data = st_audiorec(
-        start_prompt="🎤 녹음 시작",
-        stop_prompt="⏹️ 녹음 중지",
-        pause_prompt="⏸️ 일시 정지"
-    )
+    # [수정됨] 지원하지 않는 인자를 모두 제거하여 기본 위젯으로 호출
+    wav_audio_data = st_audiorec()
     if wav_audio_data is not None:
         audio_bytes = wav_audio_data
         file_name = "recorded_dream.wav"
