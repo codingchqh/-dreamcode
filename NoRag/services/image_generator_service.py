@@ -8,10 +8,6 @@ if not API_KEY:
 client = OpenAI(api_key=API_KEY)
 
 def generate_image_from_prompt(prompt_text: str) -> str:
-    """
-    주어진 텍스트 프롬프트를 사용하여 이미지를 생성합니다.
-    (DALL-E 2 모델 사용)
-    """
     print("---")
     print(f"[DEBUG] 이미지 생성 요청 프롬프트: {prompt_text}")
     print("---")
@@ -32,7 +28,6 @@ def generate_image_from_prompt(prompt_text: str) -> str:
             model="dall-e-2",
             prompt=prompt_text,
             size="1024x1024",
-            # [수정됨] DALL-E 2와 호환되지 않는 quality 파라미터 삭제
             n=1,
         )
         image_url = response.data[0].url

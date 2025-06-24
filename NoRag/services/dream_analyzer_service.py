@@ -1,116 +1,30 @@
 from openai import OpenAI
 from core.config import API_KEY
 
-# LangChain 관련 라이브러리 임포트
-from langchain_openai import ChatOpenAI
-from langchain.prompts import ChatPromptTemplate
-# Pydantic V2 호환을 위해 pydantic에서 직접 임포트
-from pydantic import BaseModel, Field
-from langchain.output_parsers import PydanticOutputParser, RetryWithErrorOutputParser
-from typing import List
-
-# LangChain의 ChatOpenAI 모델 초기화
-llm = ChatOpenAI(model="gpt-4o", openai_api_key=API_KEY, temperature=0)
-
-# 1단계: 키워드 추출을 위한 데이터 구조 정의
-class DreamKeywords(BaseModel):
-    """꿈의 내용에서 추출한 핵심 시각적 키워드"""
-    main_character: List[str] = Field(description="The main character(s) of the dream. e.g., 'I', 'a soldier', 'a friend'")
-    setting: str = Field(description="The background or place of the dream. e.g., 'a dark forest', 'a military barrack', 'an old school'")
-    key_objects: List[str] = Field(description="Important objects appearing in the dream. e.g., 'a gun', 'a spider', 'a broken clock'")
-    action: str = Field(description="The core action happening in the dream. e.g., 'running away', 'searching for something'")
-    atmosphere: str = Field(description="The overall mood of the dream. e.g., 'anxious', 'terrifying', 'urgent'")
-
-# Pydantic 파서 및 자동 재시도 파서 설정
-keyword_parser = PydanticOutputParser(pydantic_object=DreamKeywords)
-retry_parser = RetryWithErrorOutputParser.from_llm(parser=keyword_parser, llm=llm)
-
-# 키워드 추출을 위한 프롬프트 템플릿
-keyword_extraction_prompt = ChatPromptTemplate.from_messages(
-    [
-        (
-            "system",
-            "You are an expert analyst who extracts key visual elements from a dream description. "
-            "Analyze the user's dream text and extract the required information. "
-            "Your output must be formatted as a JSON object that strictly follows the provided schema. "
-            "All keywords must be in English.\n\n{format_instructions}",
-        ),
-        ("human", "{dream_text}"),
-    ]
-)
-# 키워드 추출 체인
-keyword_extraction_chain = keyword_extraction_prompt | llm | retry_parser
-
+# 이 파일은 더 이상 복잡한 LangChain 체인을 사용하지 않고, 안정성을 위해 직접 OpenAI API를 호출하는 방식으로 되돌립니다.
+client = OpenAI(api_key=API_KEY)
 
 def create_nightmare_prompt(dream_text: str) -> str:
-    """
-    [하이브리드 최종 방식]
-    1. 꿈에서 키워드 추출 -> 2. LLM으로 키워드를 조합하여 DALL-E 2를 위한 '짧은 문장' 생성
-    """
-    try:
-        # --- 1단계: 키워드 추출 ---
-        print("[DEBUG] 1단계: 꿈 내용 분석 및 키워드 추출 시작...")
-        extracted_keywords: DreamKeywords = keyword_extraction_chain.invoke({
-            "dream_text": dream_text,
-            "format_instructions": keyword_parser.get_format_instructions(),
-        })
-        print(f"[DEBUG] 추출된 키워드: {extracted_keywords}")
-
-        # --- 2단계: 키워드를 바탕으로 DALL-E 2를 위한 짧은 문장 프롬프트 생성 ---
-        print("[DEBUG] 2단계: 키워드를 바탕으로 DALL-E 2를 위한 짧은 문장 프롬프트 생성 시작...")
-        
-        sentence_prompt_template = ChatPromptTemplate.from_messages([
-            ("system", """
-            You are a master of concise, powerful prompts for the DALL-E 2 image model.
-            Your task is to combine the given dream keywords into a single, coherent English sentence.
-
-            **CRITICAL CONSTRAINTS:**
-            1. The final sentence MUST be less than 150 words to stay within the 1000-character limit of the DALL-E 2 API.
-            2. Focus on combining the character, action, and setting into a clear narrative.
-            3. Append a few key artistic styles at the end of the sentence.
-            4. The final output must be ONLY the prompt sentence itself.
-            """),
-            ("human", """
-            Here are the key elements from the dream:
-            - Main Character(s): {main_character}
-            - Setting: {setting}
-            - Key Objects: {key_objects}
-            - Core Action: {action}
-            - Atmosphere: {atmosphere}
-            
-            Now, create one single descriptive sentence for DALL-E 2, ending with styles like 'in a Korean setting, dark, surreal, photorealistic, cinematic lighting'.
-            """)
-        ])
-
-        creative_llm = ChatOpenAI(model="gpt-4o", openai_api_key=API_KEY, temperature=0.7)
-        sentence_generation_chain = sentence_prompt_template | creative_llm
-        
-        # [수정됨] Pydantic V2에 맞는 .model_dump() 메소드 사용
-        final_prompt = sentence_generation_chain.invoke(extracted_keywords.model_dump())
-        
-        return final_prompt.content.strip()
-
-    except Exception as e:
-        print(f"LangChain 프롬프트 생성 중 오류 발생: {e}")
-        return "프롬프트를 생성하는 데 실패했습니다. 입력 내용을 확인해주세요."
-
-def create_reconstructed_prompt(dream_text: str) -> str:
-    """
-    악몽 텍스트를 긍정적이고 희망적인 내용으로 재구성하여 새로운 이미지 프롬프트를 생성합니다.
-    (이 함수는 정상 작동하므로 기존의 안정적인 방식을 유지합니다)
-    """
     system_prompt = """
-    You are a wise and empathetic dream therapist. Your goal is to reframe the user's nightmare into an image of peace, healing, and hope.
+    You are a prompt artist for DALL-E 2. Your task is to convert a user's dream into a simple, effective, comma-separated keyword prompt.
 
-    **CRITICAL RULE: You must maintain the original characters and setting of the dream.** Replace sensitive keywords with neutral alternatives (e.g., 'soldier' becomes 'a young person').
-    **CONTEXT-AWARE KOREAN AESTHETIC:** Reinterpret the scene within a positive, modern Korean context relevant to the original dream. Avoid stereotypes.
+    **Analysis:**
+    1. Read the user's dream and identify the absolute core elements: Main Character, Setting, and core Mood.
+    2. Combine these into a very simple phrase.
+    3. Append artistic style keywords at the end.
 
-    The final output must be a single-paragraph, English image prompt that is safe and positive. **It must NOT contain any text or writing.**
-    """
+    **Rules:**
+    - The entire prompt must be under 1000 characters.
+    - The prompt must be in English.
+    - Do not describe a scene. List keywords.
+    - To avoid safety filters, use neutral terms. Replace 'soldier' with 'a figure', 'gun' with 'a metallic object', etc.
     
+    Example:
+    User Dream: "군인이 숲에서 총을 들고 쫓기는 꿈"
+    Your Output: "A figure in a dark forest, being chased, holding a metallic object, feeling of fear, korean dark fantasy, surreal, cinematic"
+    """
     try:
-        vanilla_client = OpenAI(api_key=API_KEY)
-        response = vanilla_client.chat.completions.create(
+        response = client.chat.completions.create(
             model="gpt-4o",
             messages=[
                 {"role": "system", "content": system_prompt},
@@ -118,8 +32,28 @@ def create_reconstructed_prompt(dream_text: str) -> str:
             ],
             temperature=0.7,
         )
-        return response.choices[0].message.content
+        return response.choices[0].message.content.strip()
+    except Exception as e:
+        print(f"악몽 프롬프트 생성 중 오류 발생: {e}")
+        return "악몽 프롬프트를 생성하는 데 실패했습니다."
+
+def create_reconstructed_prompt(dream_text: str) -> str:
+    system_prompt = """
+    You are a wise and empathetic dream therapist. Your goal is to reframe the user's nightmare into an image of peace, healing, and hope.
+    **CRITICAL RULE:** Replace sensitive keywords with neutral alternatives (e.g., 'soldier' becomes 'a young person').
+    **CONTEXT-AWARE KOREAN AESTHETIC:** Reinterpret the scene within a positive, modern Korean context.
+    The final output must be a single-paragraph, English image prompt that is safe and positive.
+    """
+    try:
+        response = client.chat.completions.create(
+            model="gpt-4o",
+            messages=[
+                {"role": "system", "content": system_prompt},
+                {"role": "user", "content": dream_text}
+            ],
+            temperature=0.7,
+        )
+        return response.choices[0].message.content.strip()
     except Exception as e:
         print(f"재구성 프롬프트 생성 중 오류 발생: {e}")
         return "프롬프트를 재구성하는 데 실패했습니다."
-

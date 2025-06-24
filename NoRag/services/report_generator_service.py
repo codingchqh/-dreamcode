@@ -1,9 +1,6 @@
-# services/report_generator_service.py (Pydantic V2 + 자동 재시도 최종본)
-
 from core.config import API_KEY
 from langchain_openai import ChatOpenAI
 from langchain.prompts import ChatPromptTemplate
-# [수정됨] langchain.pydantic_v1 대신 pydantic에서 직접 임포트
 from pydantic import BaseModel, Field
 from langchain.output_parsers import PydanticOutputParser, RetryWithErrorOutputParser
 from typing import List
@@ -19,7 +16,6 @@ class EmotionReport(BaseModel):
     keywords: List[str] = Field(description="이러한 감정들을 나타내는 꿈 속의 핵심 단어나 구절들")
     analysis_summary: str = Field(description="꿈의 전반적인 심리적 경향에 대한 한 문장 요약 (예: 우울/회피 경향의 키워드가 다수 발견됩니다.)")
 
-# [수정됨] 자동 재시도 기능이 포함된 파서로 복구
 report_parser = PydanticOutputParser(pydantic_object=EmotionReport)
 retry_report_parser = RetryWithErrorOutputParser.from_llm(parser=report_parser, llm=llm)
 
@@ -32,8 +28,6 @@ report_generation_prompt = ChatPromptTemplate.from_messages(
         ("human", "다음은 제가 꾼 꿈의 내용입니다. 분석해주세요.\n\n---\n\n{dream_text}"),
     ]
 )
-
-# [수정됨] 최종 체인에 자동 재시도 파서 연결
 report_chain = report_generation_prompt | llm | retry_report_parser
 
 def generate_report(dream_text: str) -> EmotionReport:
