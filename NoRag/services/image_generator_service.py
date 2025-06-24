@@ -1,8 +1,6 @@
-# services/image_generator_service.py (이중 안전 검사 기능 추가)
-
 from openai import OpenAI
 from core.config import API_KEY
-# [수정됨] 모더레이션 서비스를 이 파일에서도 사용하기 위해 임포트합니다.
+# 모더레이션 서비스를 이 파일에서도 사용하기 위해 임포트합니다.
 from services import moderation_service
 
 if not API_KEY:
@@ -28,7 +26,7 @@ def generate_image_from_prompt(prompt_text: str) -> str:
     if not prompt_text or not prompt_text.strip():
         return "이미지 생성을 위한 프롬프트가 비어있습니다."
 
-    # [새로운 기능] 2차 안전성 검사
+    # [이중 안전 검사] 생성된 프롬프트가 안전한지 DALL-E 전송 전에 최종 확인
     print("[DEBUG] 2차 안전성 검사: 생성된 프롬프트가 안전한지 확인 중...")
     safety_check = moderation_service.check_text_safety(prompt_text)
     if safety_check["flagged"]:
