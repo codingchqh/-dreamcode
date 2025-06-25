@@ -26,6 +26,34 @@ def load_dream_text():
             return f.read()
     return None
 
+# --- 세션 상태 기본값 초기화 (앱 시작 시) ---
+if "dream_text" not in st.session_state:
+    st.session_state.dream_text = ""
+
+if "analysis_started" not in st.session_state:
+    st.session_state.analysis_started = False
+
+if "audio_processed" not in st.session_state:
+    st.session_state.audio_processed = False
+
+if "derisked_text" not in st.session_state:
+    st.session_state.derisked_text = ""
+
+if "dream_report" not in st.session_state:
+    st.session_state.dream_report = None
+
+if "nightmare_prompt" not in st.session_state:
+    st.session_state.nightmare_prompt = ""
+
+if "reconstructed_prompt" not in st.session_state:
+    st.session_state.reconstructed_prompt = ""
+
+if "nightmare_image_url" not in st.session_state:
+    st.session_state.nightmare_image_url = ""
+
+if "reconstructed_image_url" not in st.session_state:
+    st.session_state.reconstructed_image_url = ""
+
 # --- 세션 상태 초기화 함수 ---
 def initialize_session_state():
     # dream_text는 유지 (초기화하지 않음)
@@ -66,7 +94,7 @@ with tab2:
         file_name = uploaded_file.name
 
 # --- 로직 1단계: 오디오 처리 및 텍스트 변환 ---
-if audio_bytes is not None and not st.session_state.get("audio_processed", False):
+if audio_bytes is not None and not st.session_state.audio_processed:
     initialize_session_state()
     
     audio_dir = "user_data/audio"
@@ -91,25 +119,25 @@ if audio_bytes is not None and not st.session_state.get("audio_processed", False
     st.rerun()
 
 # --- 로직 2단계: 변환된 텍스트 표시 및 분석 시작 버튼 ---
-if st.session_state.get("dream_text") and not st.session_state.get("analysis_started", False):
+if st.session_state.dream_text:
     st.markdown("---")
     st.subheader("📝 나의 악몽 이야기 (텍스트 변환 결과)")
     st.info(st.session_state.dream_text)
-    
-    st.markdown("")  # 여백
-    if st.button("✅ 이 내용으로 꿈 분석하기"):
-        st.session_state.analysis_started = True
-        st.rerun()
+
+    if not st.session_state.analysis_started:
+        if st.button("✅ 이 내용으로 꿈 분석하기"):
+            st.session_state.analysis_started = True
+            st.rerun()
 
 # [로직 3단계] 리포트 생성
-if st.session_state.get("analysis_started", False) and not st.session_state.get("dream_report"):
+if st.session_state.analysis_started and not st.session_state.dream_report:
     with st.spinner("꿈 내용을 분석하여 리포트를 생성하는 중입니다... 🧠"):
         dream_report = report_generator_service.generate_report(st.session_state.dream_text)
         st.session_state.dream_report = dream_report
         st.rerun()
 
 # [로직 4단계] 최종 결과 표시 (리포트 + 이미지 생성 버튼)
-if st.session_state.get('dream_report'):
+if st.session_state.dream_report:
     report = st.session_state.dream_report
     st.markdown("---")
     st.subheader("📊 감정 분석 리포트")
@@ -159,14 +187,14 @@ if st.session_state.get('dream_report'):
                 st.rerun()
 
 # --- 생성된 이미지 표시 ---
-if st.session_state.get('nightmare_image_url') or st.session_state.get('reconstructed_image_url'):
+if st.session_state.nightmare_image_url or st.session_state.reconstructed_image_url:
     st.markdown("---")
     st.subheader("생성된 꿈 이미지")
 
     img_col1, img_col2 = st.columns(2)
 
     with img_col1:
-        if st.session_state.get('nightmare_image_url'):
+        if st.session_state.nightmare_image_url:
             if st.session_state.nightmare_image_url.startswith("http"):
                 st.image(st.session_state.nightmare_image_url, caption="악몽 시각화")
                 with st.expander("생성 프롬프트 보기"):
@@ -175,7 +203,7 @@ if st.session_state.get('nightmare_image_url') or st.session_state.get('reconstr
                 st.error(f"악몽 이미지 생성 실패: {st.session_state.nightmare_image_url}")
 
     with img_col2:
-        if st.session_state.get('reconstructed_image_url'):
+        if st.session_state.reconstructed_image_url:
             if st.session_state.reconstructed_image_url.startswith("http"):
                 st.image(st.session_state.reconstructed_image_url, caption="재구성된 꿈")
                 with st.expander("생성 프롬프트 보기"):
