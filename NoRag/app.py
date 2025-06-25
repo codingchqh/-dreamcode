@@ -1,5 +1,6 @@
 import streamlit as st
 import os
+from PIL import Image
 from services import stt_service, dream_analyzer_service, image_generator_service, moderation_service, report_generator_service
 from st_audiorec import st_audiorec
 
@@ -9,7 +10,15 @@ st.set_page_config(
     page_icon="🌙",
     layout="wide"
 )
+# 로고 이미지 삽입 (파일 경로는 상대경로 또는 절대경로로)
+logo_path = "C:/Users/user/Desktop/qqq/NoRag/NoRag/user_data/image/Logo.png"  # 로고 이미지가 현재 디렉토리에 있어야 함
 
+# 로고 표시
+st.image(Image.open(logo_path), width=200)  # 너비는 원하는 값으로 조정
+
+# 제목 등 UI 구성 계속 진행
+st.title("보여dream 🌙")
+st.write("악몽을 녹음하거나 파일을 업로드해 주세요.")
 # 텍스트 저장 경로
 dream_text_path = "user_data/dream_text.txt"
 os.makedirs("user_data", exist_ok=True)

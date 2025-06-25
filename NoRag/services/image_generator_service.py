@@ -35,4 +35,4 @@ def generate_image_from_prompt(prompt_text: str) -> str:
         return image_url
     except Exception as e:
         print(f"이미지 생성 중 오류 발생: {e}")
-        return f"이미지 생성 중 오류가 발생했습니다. (오류: {e})"
+        return f"이미지 생성 중 오류가 발생했습니다. (오류: {e})"   
