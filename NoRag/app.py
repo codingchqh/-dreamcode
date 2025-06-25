@@ -96,7 +96,7 @@ if st.session_state.get("dream_text") and not st.session_state.get("analysis_sta
     st.subheader("📝 나의 악몽 이야기 (텍스트 변환 결과)")
     st.info(st.session_state.dream_text)
     
-    st.markdown("") # 여백
+    st.markdown("")  # 여백
     if st.button("✅ 이 내용으로 꿈 분석하기"):
         st.session_state.analysis_started = True
         st.rerun()
