@@ -118,7 +118,7 @@ if audio_bytes is not None and not st.session_state.audio_processed:
             st.session_state.audio_processed = True
 
     os.remove(audio_path)
-    st.experimental_rerun()
+    st.rerun()
 
 # --- 2단계: 텍스트 출력 및 분석 시작 버튼 ---
 if st.session_state.dream_text:
@@ -129,14 +129,14 @@ if st.session_state.dream_text:
     if not st.session_state.analysis_started:
         if st.button("✅ 이 내용으로 꿈 분석하기"):
             st.session_state.analysis_started = True
-            st.experimental_rerun()
+            st.rerun()
 
 # --- 3단계: 분석 시작 시 리포트 생성 ---
 if st.session_state.analysis_started and st.session_state.dream_report is None:
     with st.spinner("꿈 내용을 분석하여 리포트를 생성하는 중... 🧠"):
         report = report_generator_service.generate_report(st.session_state.dream_text)
         st.session_state.dream_report = report
-        st.experimental_rerun()
+        st.rerun()
 
 # --- 4단계: 리포트 출력 ---
 if st.session_state.dream_report:
