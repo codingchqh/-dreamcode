@@ -127,9 +127,11 @@ if st.session_state.dream_text:
 
 
     if not st.session_state.analysis_started:
-        if st.button("✅ 이 내용으로 꿈 분석하기"):
-            st.session_state.analysis_started = True
-            st.rerun()
+        start_analysis = st.button("✅ 이 내용으로 꿈 분석하기")
+    if start_analysis:
+        st.session_state.analysis_started = True
+        st.rerun()
+
 
 # [로직 3단계] 리포트 생성
 if st.session_state.analysis_started and not st.session_state.dream_report:
