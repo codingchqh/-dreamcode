@@ -1,31 +1,22 @@
-# services/stt_service.py
+# services/stt_service.py (수정 전)
+# from core.config import API_KEY # <-- 이 부분이 오류의 원인입니다.
 
+# services/stt_service.py (수정 후)
+
+import os
 from openai import OpenAI
-from core.config import API_KEY
+# config.py에서 settings 객체를 임포트합니다.
+from core.config import settings # 이 줄을 추가/수정합니다.
 
-# API 키가 설정되지 않았다면 에러를 발생시킬 수 있도록 처리
-if not API_KEY:
-    raise ValueError("OpenAI API 키가 설정되지 않았습니다. 환경 변수를 확인하세요.")
+class STTService:
+    def __init__(self, api_key: str):
+        # 이제 api_key는 생성자를 통해 외부(main.py)에서 주입받습니다.
+        self.client = OpenAI(api_key=api_key) 
 
-client = OpenAI(api_key=API_KEY)
-
-def transcribe_audio(audio_file_path: str) -> str:
-    """
-    주어진 오디오 파일 경로를 사용하여 음성을 텍스트로 변환합니다.
-
-    Args:
-        audio_file_path (str): 변환할 오디오 파일의 경로
-
-    Returns:
-        str: 변환된 텍스트
-    """
-    try:
-        with open(audio_file_path, "rb") as audio_file:
-            transcript = client.audio.transcriptions.create(
+    def transcribe_audio(self, audio_path: str) -> str:
+        with open(audio_path, "rb") as audio_file:
+            transcript = self.client.audio.transcriptions.create(
                 model="whisper-1",
                 file=audio_file
             )
         return transcript.text
-    except Exception as e:
-        print(f"음성 변환 중 오류 발생: {e}")
-        return "음성을 변환하는 데 실패했습니다. 파일을 다시 확인해주세요."
