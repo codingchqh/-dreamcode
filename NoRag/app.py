@@ -10,6 +10,16 @@ st.set_page_config(
     page_icon="🌙",
     layout="wide"
 )
+# 로고 + 타이틀 수평 정렬
+st.markdown(
+    """
+    <div style="display: flex; align-items: center; margin-bottom: 1rem;">
+        <img src="Logo.png" width="80" style="margin-right: 20px;">
+        <h1 style="margin: 0; font-size: 2.5rem;">보여dream 🌙</h1>
+    </div>
+    """,
+    unsafe_allow_html=True
+)
 # 로고 이미지 삽입 (파일 경로는 상대경로 또는 절대경로로)
 logo_path = "C:/Users/user/Desktop/qqq/NoRag/NoRag/user_data/image/Logo.png"  # 로고 이미지가 현재 디렉토리에 있어야 함
 
