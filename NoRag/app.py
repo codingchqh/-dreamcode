@@ -11,7 +11,7 @@ def get_base64_image(image_path):
         return base64.b64encode(img_file.read()).decode()
 
 # 로고 이미지 경로
-logo_path = "b52fda47-d21c-429e-9b42-79210efb5243.png"  # 업로드된 로고 파일명과 경로에 맞게 조정
+logo_path = logo_path = "user_data/image/Logo.png" # 업로드된 로고 파일명과 경로에 맞게 조정
 
 # base64 인코딩된 이미지 불러오기
 logo_base64 = get_base64_image(logo_path)
