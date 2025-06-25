@@ -120,14 +120,15 @@ if audio_bytes is not None and not st.session_state.audio_processed:
     st.rerun()
 
 # --- 로직 2단계: 변환된 텍스트 표시 및 분석 시작 버튼 ---
+# 텍스트 출력 부분
 if st.session_state.dream_text:
     st.markdown("---")
     st.subheader("📝 나의 악몽 이야기 (텍스트 변환 결과)")
     st.info(st.session_state.dream_text)
 
-
-    if not st.session_state.analysis_started:
-        start_analysis = st.button("✅ 이 내용으로 꿈 분석하기")
+# 분석 시작 버튼 처리
+if not st.session_state.analysis_started:
+    start_analysis = st.button("✅ 이 내용으로 꿈 분석하기")
     if start_analysis:
         st.session_state.analysis_started = True
         st.rerun()
@@ -137,6 +138,7 @@ if st.session_state.dream_text:
 if st.session_state.analysis_started and not st.session_state.dream_report:
     with st.spinner("꿈 내용을 분석하여 리포트를 생성하는 중입니다... 🧠"):
         dream_report = report_generator_service.generate_report(st.session_state.dream_text)
+        st.write("DEBUG: dream_report =", dream_report)
         st.session_state.dream_report = dream_report
         st.rerun()
 
