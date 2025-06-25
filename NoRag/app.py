@@ -5,6 +5,8 @@ from services import stt_service, dream_analyzer_service, image_generator_servic
 from st_audiorec import st_audiorec
 import base64
 import core.config
+import tempfile # tempfile 모듈 추가
+import shutil   # shutil 모듈 추가 (혹시 필요할 경우)
 
 # --- 1. 페이지 설정 (반드시 모든 st. 명령보다 먼저 와야 합니다!) ---
 st.set_page_config(
@@ -154,15 +156,30 @@ with col_center: # 모든 UI 요소를 이 중앙 컬럼 안에 배치합니다.
             file_name = uploaded_file.name
 
     # --- 8. 1단계: 오디오 → 텍스트 전사 (STT) + 안전성 검사 ---
-    if audio_bytes is not None and not st.session_state.audio_processed:
-        initialize_session_state()
-        
-        audio_dir = "user_data/audio"
-        os.makedirs(audio_dir, exist_ok=True)
-        audio_path = os.path.join(audio_dir, file_name)
+if audio_bytes is not None and not st.session_state.audio_processed:
+    initialize_session_state()
+    
+    # 임시 오디오 파일을 저장할 디렉토리 (기존 user_data/audio 사용)
+    temp_audio_dir = "user_data/audio"
+    os.makedirs(temp_audio_dir, exist_ok=True)
 
-        with open(audio_path, "wb") as f:
-            f.write(audio_bytes)
+    audio_path = None # 임시 파일 경로를 저장할 변수 초기화
+
+    try:
+        # NamedTemporaryFile을 사용하여 임시 파일을 생성합니다.
+        # delete=False로 설정하여 파일을 직접 제어하여 삭제합니다.
+        # suffix를 사용하여 원래 파일의 확장자를 유지합니다.
+        suffix = os.path.splitext(file_name)[1] if file_name else ".wav"
+        with tempfile.NamedTemporaryFile(delete=False, dir=temp_audio_dir, suffix=suffix) as temp_file:
+            temp_file.write(audio_bytes)
+            audio_path = temp_file.name # 생성된 임시 파일의 실제 경로를 얻습니다.
+        
+        # 파일이 성공적으로 생성되었는지 확인
+        if not audio_path or not os.path.exists(audio_path):
+            st.error("임시 오디오 파일 생성에 실패했습니다.")
+            st.session_state.audio_processed = False
+            st.rerun() # 오류 발생 시 재실행하여 상태 갱신
+            # continue # 이 부분은 Streamlit 앱의 최상위 레벨에서 사용하기 적절치 않아 제거
 
         with st.spinner("음성을 텍스트로 변환하고 안전성 검사 중... 🕵️‍♂️"):
             transcribed_text = _stt_service.transcribe_audio(audio_path)
@@ -180,8 +197,25 @@ with col_center: # 모든 UI 요소를 이 중앙 컬럼 안에 배치합니다.
                 st.success("안전성 검사: " + safety_result["text"])
                 st.session_state.audio_processed = True
 
-        os.remove(audio_path)
-        st.rerun()
+    except Exception as e:
+        # 오디오 처리 과정에서 예외 발생 시 처리
+        st.error(f"오디오 처리 중 예상치 못한 오류가 발생했습니다: {e}")
+        st.session_state.audio_processed = False # 처리 실패로 표시
+        st.session_state.dream_text = "" # 텍스트 초기화
+        print(f"Error during audio processing: {e}") # 터미널에 상세 오류 출력
+
+    finally:
+        # 임시 파일을 반드시 삭제합니다.
+        if audio_path and os.path.exists(audio_path): # 파일 경로가 있고, 파일이 존재할 경우에만 삭제 시도
+            try:
+                os.remove(audio_path)
+                print(f"DEBUG: 임시 오디오 파일 성공적으로 삭제됨: {audio_path}")
+            except Exception as e:
+                print(f"WARNING: 임시 오디오 파일 '{audio_path}' 삭제 실패: {e}")
+        elif audio_path:
+            print(f"DEBUG: 임시 오디오 파일 '{audio_path}'은 이미 존재하지 않아 삭제를 건너뜁니다 (이전 단계에서 삭제되었을 가능성).")
+    
+    st.rerun() # 처리 결과에 따라 UI를 갱신하기 위해 재실행
 
     # --- 9. 2단계: 전사된 텍스트 출력 및 분석 시작 버튼 ---
     if st.session_state.original_dream_text: 
