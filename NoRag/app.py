@@ -20,7 +20,7 @@ logo_base64 = get_base64_image(logo_path)
 st.markdown(
     f"""
     <div style="display: flex; align-items: center; margin-bottom: 1rem;">
-        <img src="data:image/png;base64,{logo_base64}" width="60" style="margin-right: 20px;">
+        <img src="data:image/png;base64,{logo_base64}" width="120" style="margin-right: 20px;">
         <h1 style="margin: 0;">보여dream 🌙</h1>
     </div>
     """,
