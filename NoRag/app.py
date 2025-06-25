@@ -241,15 +241,14 @@ if st.session_state.dream_report:
     with col2:
         if st.button("✨ 재구성된 꿈 이미지 보기"):
             with st.spinner("악몽을 긍정적인 꿈으로 재구성하는 중... 🌈"):
-                # 변경된 부분: reconstructed_prompt, transformation_summary, keyword_mappings를 한 번에 받음
                 reconstructed_prompt, transformation_summary, keyword_mappings = \
                     _dream_analyzer_service.create_reconstructed_prompt(
                         st.session_state.dream_text, 
                         st.session_state.dream_report
                     )
                 st.session_state.reconstructed_prompt = reconstructed_prompt
-                st.session_state.transformation_summary = transformation_summary # 세션 상태 저장
-                st.session_state.keyword_mappings = keyword_mappings           # 세션 상태 저장
+                st.session_state.transformation_summary = transformation_summary
+                st.session_state.keyword_mappings = keyword_mappings           
 
                 reconstructed_image_url = _image_generator_service.generate_image_from_prompt(reconstructed_prompt)
                 st.session_state.reconstructed_image_url = reconstructed_image_url
@@ -281,31 +280,27 @@ if st.session_state.nightmare_image_url or st.session_state.reconstructed_image_
             if st.session_state.reconstructed_image_url.startswith("http"):
                 st.image(st.session_state.reconstructed_image_url, caption="재구성된 꿈")
                 with st.expander("생성 프롬프트 보기"):
-                    # 프롬프트 키워드 강조 로직
                     highlighted_prompt = st.session_state.reconstructed_prompt
                     for mapping in st.session_state.keyword_mappings:
                         original_concept = mapping.get("original")
                         transformed_concept = mapping.get("transformed")
-                        if transformed_concept and transformed_concept in highlighted_prompt: # 프롬프트에 변환된 개념이 있는지 확인
-                            # HTML 마크다운으로 강조
-                            # replace 대신 regex나 더 정교한 방법 사용을 권장하지만, 간단한 예시로 replace 사용
+                        if transformed_concept and transformed_concept in highlighted_prompt:
                             highlighted_prompt = highlighted_prompt.replace(
                                 transformed_concept,
                                 f'**<span style="color: blue; font-weight: bold;">{transformed_concept}</span>**'
                             )
-                    st.markdown(highlighted_prompt, unsafe_allow_html=True) # HTML 마크다운으로 표시
+                    st.markdown(highlighted_prompt, unsafe_allow_html=True)
 
                 # --- 📌 새로 추가된 UI 요소: 변환 요약 섹션 ---
                 if st.session_state.transformation_summary:
-                    st.markdown("---") # 구분선 추가
+                    st.markdown("---")
                     st.subheader("💡 꿈 변환 요약")
-                    st.info(st.session_state.transformation_summary) # 요약 텍스트를 info 박스로 표시
+                    st.info(st.session_state.transformation_summary)
                 
-                # --- 📌 새로 추가된 UI 요소: 원본 키워드와 변환된 키워드 대조 (선택 사항) ---
-                # 이 부분은 필요에 따라 주석을 해제하고 사용하세요.
-                if st.session_state.keyword_mappings:
-                    st.markdown("---") # 구분선 추가
-                    st.subheader("↔️ 주요 변환 요소")
+                # --- 📌 새로 추가된 UI 요소: 원본 키워드와 변환된 키워드 대조 (이제 주석 해제됨) ---
+                if st.session_state.keyword_mappings: # 이 if 문이 이제 주석 없이 활성화됩니다.
+                    st.markdown("---")
+                    st.subheader("↔️ 주요 변환 요소:")
                     for mapping in st.session_state.keyword_mappings:
                         original = mapping.get('original', '알 수 없음')
                         transformed = mapping.get('transformed', '알 수 없음')
@@ -313,4 +308,3 @@ if st.session_state.nightmare_image_url or st.session_state.reconstructed_image_
                 
             else:
                 st.error(f"재구성된 꿈 이미지 생성 실패: {st.session_state.reconstructed_image_url}")
-
