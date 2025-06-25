@@ -1,10 +1,14 @@
 import streamlit as st
 import os
-from PIL import Image # PIL is imported but not used directly in the provided snippet for image processing in Streamlit
+from PIL import Image # PIL은 직접 사용되지 않지만, 기존 코드에 있었으므로 유지
 from services import stt_service, dream_analyzer_service, image_generator_service, moderation_service, report_generator_service
 from st_audiorec import st_audiorec
 import base64
-from core.config import settings # core/config.py에서 settings 객체를 임포트합니다.
+# from core.config import settings # <-- 이제 이 줄은 필요 없습니다.
+# core/config.py가 .env 파일을 로드하도록 되어 있으므로, 별도의 import는 불필요합니다.
+# 하지만, Streamlit 앱 시작 전에 확실히 load_dotenv가 실행되도록
+# core.config 모듈을 한 번 임포트해주는 것이 좋습니다.
+import core.config # core/config.py 모듈 자체를 임포트하여 load_dotenv가 실행되도록 합니다.
 
 # --- 1. 페이지 설정 (반드시 모든 st. 명령보다 먼저 와야 합니다!) ---
 st.set_page_config(
@@ -14,12 +18,13 @@ st.set_page_config(
 )
 
 # --- 2. API 키 로드 및 서비스 초기화 ---
-# config.py에서 가져온 settings 객체를 통해 OPENAI_API_KEY에 접근합니다.
-openai_api_key = settings.OPENAI_API_KEY
+# core.config 모듈이 임포트되면서 load_dotenv()가 이미 호출되었으므로,
+# 여기서는 os.getenv()로 환경 변수를 직접 가져옵니다.
+openai_api_key = os.getenv("OPENAI_API_KEY", "")
 
 # API 키가 제대로 설정되었는지 확인하고, 없으면 앱 실행을 중단합니다.
 if not openai_api_key:
-    st.error("OPENAI_API_KEY 환경 변수가 설정되지 않았습니다. 시스템 환경 변수를 확인하거나 'core/config.py' 파일을 설정해주세요.")
+    st.error("OPENAI_API_KEY 환경 변수가 설정되지 않았습니다. 시스템 환경 변수를 확인하거나 '.env' 파일을 설정해주세요.")
     st.stop() # API 키가 없으면 애플리케이션 실행을 중단합니다.
 
 # 각 서비스 클래스의 인스턴스를 생성합니다.
@@ -68,9 +73,9 @@ if logo_base64:
         unsafe_allow_html=True
     )
 else:
-    st.title("보여dream 🌙") # 로고가 없을 경우 기본 타이틀 표시
+    st.title("보여dream 🌙")
 
-st.write("악몽을 녹음하거나 파일을 업로드해 주세요.") # 로고/타이틀 아래 앱 설명
+st.write("악몽을 녹음하거나 파일을 업로드해 주세요.")
 
 # --- 4. 텍스트 저장/로드 함수 및 경로 설정 ---
 # 텍스트 저장 경로 (사용자 데이터를 임시 저장할 경로)
@@ -90,7 +95,6 @@ def load_dream_text():
     return None
 
 # --- 5. 세션 상태 기본값 초기화 (앱 시작 시) ---
-# Streamlit 앱 상태 관리를 위한 세션 상태 변수들
 if "dream_text" not in st.session_state:
     st.session_state.dream_text = ""
 
@@ -112,6 +116,12 @@ if "nightmare_prompt" not in st.session_state:
 if "reconstructed_prompt" not in st.session_state:
     st.session_state.reconstructed_prompt = ""
 
+if "transformation_summary" not in st.session_state: # 변환 요약 세션 상태 추가
+    st.session_state.transformation_summary = ""
+
+if "keyword_mappings" not in st.session_state: # 키워드 매핑 세션 상태 추가
+    st.session_state.keyword_mappings = []
+
 if "nightmare_image_url" not in st.session_state:
     st.session_state.nightmare_image_url = ""
 
@@ -128,6 +138,8 @@ def initialize_session_state():
     st.session_state.dream_report = None
     st.session_state.nightmare_prompt = ""
     st.session_state.reconstructed_prompt = ""
+    st.session_state.transformation_summary = "" # 초기화 추가
+    st.session_state.keyword_mappings = []       # 초기화 추가
     st.session_state.nightmare_image_url = ""
     st.session_state.reconstructed_image_url = ""
     st.session_state.audio_processed = False
@@ -158,141 +170,160 @@ with tab2:
         file_name = uploaded_file.name
 
 # --- 8. 1단계: 오디오 → 텍스트 전사 (STT) + 안전성 검사 ---
-# 오디오 데이터가 존재하고 아직 처리되지 않았다면 STT 및 안전성 검사 실행
 if audio_bytes is not None and not st.session_state.audio_processed:
-    initialize_session_state()  # 새로운 오디오가 들어왔으므로 세션 상태 초기화
+    initialize_session_state()
     
     audio_dir = "user_data/audio"
-    os.makedirs(audio_dir, exist_ok=True) # 오디오 저장 디렉토리 생성
+    os.makedirs(audio_dir, exist_ok=True)
     audio_path = os.path.join(audio_dir, file_name)
 
-    # 임시 오디오 파일 저장
     with open(audio_path, "wb") as f:
         f.write(audio_bytes)
 
     with st.spinner("음성을 텍스트로 변환하고 안전성 검사 중... 🕵️‍♂️"):
-        # STT 서비스 호출 (인스턴스 사용)
         transcribed_text = _stt_service.transcribe_audio(audio_path)
-        # 안전성 검사 서비스 호출 (인스턴스 사용)
         safety_result = _moderation_service.check_text_safety(transcribed_text)
 
-        if safety_result["flagged"]: # 안전성 검사에서 문제가 감지된 경우
-            st.error(safety_result["text"]) # 사용자에게 경고 메시지 표시
-            st.session_state.audio_processed = False # 다시 오디오 처리 시도 가능하도록 상태 리셋
+        if safety_result["flagged"]:
+            st.error(safety_result["text"])
+            st.session_state.audio_processed = False
         else:
-            st.session_state.dream_text = safety_result["text"] # 안전한 텍스트를 세션 상태에 저장
-            st.session_state.audio_processed = True # 오디오 처리 완료 상태로 설정
+            st.session_state.dream_text = safety_result["text"]
+            st.session_state.audio_processed = True
 
-    os.remove(audio_path) # 임시 오디오 파일 삭제
-    st.rerun() # Streamlit 앱 다시 실행하여 다음 단계로 진행 (상태 업데이트 반영)
+    os.remove(audio_path)
+    st.rerun()
 
 # --- 9. 2단계: 전사된 텍스트 출력 및 분석 시작 버튼 ---
-if st.session_state.dream_text: # 꿈 텍스트가 세션 상태에 존재하면
+if st.session_state.dream_text:
     st.markdown("---")
     st.subheader("📝 나의 악몽 이야기 (텍스트 변환 결과)")
-    st.info(st.session_state.dream_text) # 변환된 텍스트 사용자에게 표시
+    st.info(st.session_state.dream_text)
 
-    if not st.session_state.analysis_started: # 아직 분석이 시작되지 않았다면
-        if st.button("✅ 이 내용으로 꿈 분석하기"): # 분석 시작 버튼 표시
-            st.session_state.analysis_started = True # 분석 시작 상태로 변경
-            st.rerun() # 앱 다시 실행하여 분석 단계로 진행
+    if not st.session_state.analysis_started:
+        if st.button("✅ 이 내용으로 꿈 분석하기"):
+            st.session_state.analysis_started = True
+            st.rerun()
 
 # --- 10. 3단계: 분석 시작 시 감정 분석 리포트 생성 ---
-# 분석이 시작되었고 리포트가 아직 생성되지 않았다면 리포트 생성
 if st.session_state.analysis_started and st.session_state.dream_report is None:
     with st.spinner("꿈 내용을 분석하여 리포트를 생성하는 중... 🧠"):
-        # 감정 분석 리포트 생성 서비스 호출 (인스턴스 사용)
         report = _report_generator_service.generate_report(st.session_state.dream_text)
-        st.session_state.dream_report = report # 생성된 리포트를 세션 상태에 저장
-        st.rerun() # 앱 다시 실행하여 리포트 출력 단계로 진행 (상태 업데이트 반영)
+        st.session_state.dream_report = report
+        st.rerun()
 
 # --- 11. 4단계: 감정 분석 리포트 출력 및 이미지 생성 버튼 ---
-if st.session_state.dream_report: # 감정 분석 리포트가 세션 상태에 존재하면
+if st.session_state.dream_report:
     report = st.session_state.dream_report
     st.markdown("---")
     st.subheader("📊 감정 분석 리포트")
 
-    # 리포트에서 감정 정보 가져와서 시각화
     emotions = report.get("emotions", [])
     if emotions:
         st.markdown("##### 꿈 속 감정 구성:")
         for emotion in emotions:
             st.write(f"- {emotion.get('emotion', '알 수 없는 감정')}")
             score = emotion.get('score', 0)
-            st.progress(score, text=f"{score}%") # 진행 바로 감정 점수 표시
+            st.progress(score, text=f"{score}%")
 
-    # 리포트에서 키워드 정보 가져와서 표시
     keywords = report.get("keywords", [])
     if keywords:
         st.markdown("##### 감정 키워드:")
         keywords_str = ", ".join(f'"{keyword}"' for keyword in keywords)
         st.code(f"[{keywords_str}]", language="json")
 
-    # 리포트에서 종합 분석 요약 가져와서 표시
     summary = report.get("analysis_summary", "")
     if summary:
         st.markdown("##### 📝 종합 분석:")
         st.info(summary)
     
-    # 이미지 생성 버튼 표시
     st.markdown("---")
     st.subheader("🎨 꿈 이미지 생성하기")
     st.write("분석 리포트를 바탕으로, 이제 꿈을 시각화해 보세요. 어떤 이미지를 먼저 보시겠어요?")
     
-    # 이미지 선택을 위한 두 개의 컬럼
     col1, col2 = st.columns(2)
 
     with col1:
-        # '악몽 이미지 그대로 보기' 버튼
         if st.button("😱 악몽 이미지 그대로 보기"):
             with st.spinner("악몽을 시각화하는 중... 잠시만 기다려주세요."):
-                # 악몽 프롬프트 생성 서비스 호출 (인스턴스 사용)
                 nightmare_prompt = _dream_analyzer_service.create_nightmare_prompt(st.session_state.dream_text)
-                st.session_state.nightmare_prompt = nightmare_prompt # 생성된 프롬프트 저장
-                # 이미지 생성 서비스 호출 (인스턴스 사용)
+                st.session_state.nightmare_prompt = nightmare_prompt
                 nightmare_image_url = _image_generator_service.generate_image_from_prompt(nightmare_prompt)
-                st.session_state.nightmare_image_url = nightmare_image_url # 생성된 이미지 URL 저장
-                st.rerun() # 앱 다시 실행하여 이미지 표시
+                st.session_state.nightmare_image_url = nightmare_image_url
+                
+                # 재구성 이미지 관련 세션 상태는 악몽 이미지 선택 시 초기화
+                st.session_state.reconstructed_prompt = ""
+                st.session_state.transformation_summary = ""
+                st.session_state.keyword_mappings = []
+                st.session_state.reconstructed_image_url = ""
+
+                st.rerun()
 
     with col2:
-        # '재구성된 꿈 이미지 보기' 버튼
         if st.button("✨ 재구성된 꿈 이미지 보기"):
             with st.spinner("악몽을 긍정적인 꿈으로 재구성하는 중... 🌈"):
-                # 재구성된 꿈 프롬프트 생성 서비스 호출 (인스턴스 사용)
-                # 변경된 부분: dream_report를 함께 전달합니다!
-                reconstructed_prompt = _dream_analyzer_service.create_reconstructed_prompt(
-                    st.session_state.dream_text, 
-                    st.session_state.dream_report # 감정 분석 리포트 객체를 함께 전달!
-                )
-                st.session_state.reconstructed_prompt = reconstructed_prompt # 생성된 프롬프트 저장
-                # 이미지 생성 서비스 호출 (인스턴스 사용)
+                reconstructed_prompt, transformation_summary, keyword_mappings = \
+                    _dream_analyzer_service.create_reconstructed_prompt(
+                        st.session_state.dream_text, 
+                        st.session_state.dream_report
+                    )
+                st.session_state.reconstructed_prompt = reconstructed_prompt
+                st.session_state.transformation_summary = transformation_summary
+                st.session_state.keyword_mappings = keyword_mappings           
+
                 reconstructed_image_url = _image_generator_service.generate_image_from_prompt(reconstructed_prompt)
-                st.session_state.reconstructed_image_url = reconstructed_image_url # 생성된 이미지 URL 저장
-                st.rerun() # 앱 다시 실행하여 이미지 표시
+                st.session_state.reconstructed_image_url = reconstructed_image_url
+
+                # 악몽 이미지 관련 세션 상태는 재구성 이미지 선택 시 초기화
+                st.session_state.nightmare_prompt = ""
+                st.session_state.nightmare_image_url = ""
+
+                st.rerun()
 
 # --- 12. 5단계: 생성된 이미지 표시 ---
-# 악몽 이미지 또는 재구성된 꿈 이미지가 생성되었다면 표시
 if st.session_state.nightmare_image_url or st.session_state.reconstructed_image_url:
     st.markdown("---")
     st.subheader("생성된 꿈 이미지")
 
-    # 이미지를 나란히 표시하기 위한 두 개의 컬럼
     img_col1, img_col2 = st.columns(2)
 
     with img_col1:
         if st.session_state.nightmare_image_url:
             if st.session_state.nightmare_image_url.startswith("http"):
                 st.image(st.session_state.nightmare_image_url, caption="악몽 시각화")
-                with st.expander("생성 프롬프트 보기"): # 생성된 프롬프트를 볼 수 있는 확장 가능한 섹션
+                with st.expander("생성 프롬프트 보기"):
                     st.write(st.session_state.nightmare_prompt)
             else:
-                st.error(f"악몽 이미지 생성 실패: {st.session_state.nightmare_image_url}") # 이미지 URL이 유효하지 않을 경우 오류 메시지
+                st.error(f"악몽 이미지 생성 실패: {st.session_state.nightmare_image_url}")
 
     with img_col2:
         if st.session_state.reconstructed_image_url:
             if st.session_state.reconstructed_image_url.startswith("http"):
                 st.image(st.session_state.reconstructed_image_url, caption="재구성된 꿈")
-                with st.expander("생성 프롬프트 보기"): # 생성된 프롬프트를 볼 수 있는 확장 가능한 섹션
-                    st.write(st.session_state.reconstructed_prompt)
+                with st.expander("생성 프롬프트 보기"):
+                    highlighted_prompt = st.session_state.reconstructed_prompt
+                    for mapping in st.session_state.keyword_mappings:
+                        original_concept = mapping.get("original")
+                        transformed_concept = mapping.get("transformed")
+                        if transformed_concept and transformed_concept in highlighted_prompt:
+                            highlighted_prompt = highlighted_prompt.replace(
+                                transformed_concept,
+                                f'**<span style="color: blue; font-weight: bold;">{transformed_concept}</span>**'
+                            )
+                    st.markdown(highlighted_prompt, unsafe_allow_html=True)
+
+                if st.session_state.transformation_summary:
+                    st.markdown("---")
+                    st.subheader("💡 꿈 변환 요약")
+                    st.info(st.session_state.transformation_summary)
+                
+                if st.session_state.keyword_mappings:
+                    st.markdown("---")
+                    st.subheader("↔️ 주요 변환 요소:")
+                    for mapping in st.session_state.keyword_mappings:
+                        original = mapping.get('original', '알 수 없음')
+                        transformed = mapping.get('transformed', '알 수 없음')
+                        st.write(f"- **{original}** ➡️ **{transformed}**")
+                
             else:
-                st.error(f"재구성된 꿈 이미지 생성 실패: {st.session_state.reconstructed_image_url}") # 이미지 URL이 유효하지 않을 경우 오류 메시지
+                st.error(f"재구성된 꿈 이미지 생성 실패: {st.session_state.reconstructed_image_url}")
