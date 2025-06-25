@@ -155,31 +155,25 @@ with col_center: # 모든 UI 요소를 이 중앙 컬럼 안에 배치합니다.
             audio_bytes = uploaded_file.getvalue()
             file_name = uploaded_file.name
 
-    # --- 8. 1단계: 오디오 → 텍스트 전사 (STT) + 안전성 검사 ---
+   # --- 8. 1단계: 오디오 → 텍스트 전사 (STT) + 안전성 검사 ---
 if audio_bytes is not None and not st.session_state.audio_processed:
     initialize_session_state()
     
-    # 임시 오디오 파일을 저장할 디렉토리 (기존 user_data/audio 사용)
     temp_audio_dir = "user_data/audio"
     os.makedirs(temp_audio_dir, exist_ok=True)
 
-    audio_path = None # 임시 파일 경로를 저장할 변수 초기화
+    audio_path = None
 
     try:
-        # NamedTemporaryFile을 사용하여 임시 파일을 생성합니다.
-        # delete=False로 설정하여 파일을 직접 제어하여 삭제합니다.
-        # suffix를 사용하여 원래 파일의 확장자를 유지합니다.
         suffix = os.path.splitext(file_name)[1] if file_name else ".wav"
         with tempfile.NamedTemporaryFile(delete=False, dir=temp_audio_dir, suffix=suffix) as temp_file:
             temp_file.write(audio_bytes)
-            audio_path = temp_file.name # 생성된 임시 파일의 실제 경로를 얻습니다.
+            audio_path = temp_file.name
         
-        # 파일이 성공적으로 생성되었는지 확인
         if not audio_path or not os.path.exists(audio_path):
             st.error("임시 오디오 파일 생성에 실패했습니다.")
             st.session_state.audio_processed = False
-            st.rerun() # 오류 발생 시 재실행하여 상태 갱신
-            # continue # 이 부분은 Streamlit 앱의 최상위 레벨에서 사용하기 적절치 않아 제거
+            st.rerun()
 
         with st.spinner("음성을 텍스트로 변환하고 안전성 검사 중... 🕵️‍♂️"):
             transcribed_text = _stt_service.transcribe_audio(audio_path)
@@ -198,37 +192,49 @@ if audio_bytes is not None and not st.session_state.audio_processed:
                 st.session_state.audio_processed = True
 
     except Exception as e:
-        # 오디오 처리 과정에서 예외 발생 시 처리
         st.error(f"오디오 처리 중 예상치 못한 오류가 발생했습니다: {e}")
-        st.session_state.audio_processed = False # 처리 실패로 표시
-        st.session_state.dream_text = "" # 텍스트 초기화
-        print(f"Error during audio processing: {e}") # 터미널에 상세 오류 출력
-
+        st.session_state.audio_processed = False
+        st.session_state.dream_text = ""
+        print(f"ERROR during audio processing: {e}")
     finally:
-        # 임시 파일을 반드시 삭제합니다.
-        if audio_path and os.path.exists(audio_path): # 파일 경로가 있고, 파일이 존재할 경우에만 삭제 시도
+        if audio_path and os.path.exists(audio_path):
             try:
                 os.remove(audio_path)
                 print(f"DEBUG: 임시 오디오 파일 성공적으로 삭제됨: {audio_path}")
             except Exception as e:
                 print(f"WARNING: 임시 오디오 파일 '{audio_path}' 삭제 실패: {e}")
         elif audio_path:
-            print(f"DEBUG: 임시 오디오 파일 '{audio_path}'은 이미 존재하지 않아 삭제를 건너뜁니다 (이전 단계에서 삭제되었을 가능성).")
+            print(f"DEBUG: 임시 오디오 파일 '{audio_path}'은 이미 존재하지 않아 삭제를 건너뜁니다.")
     
-    st.rerun() # 처리 결과에 따라 UI를 갱신하기 위해 재실행
+    # ===> 여기에 디버그 출력 추가 <===
+    print("\n--- DEBUG: After Audio Processing & Safety Check ---")
+    print(f"DEBUG: st.session_state.audio_processed = {st.session_state.audio_processed}")
+    print(f"DEBUG: st.session_state.original_dream_text = '{st.session_state.original_dream_text}'")
+    print(f"DEBUG: st.session_state.dream_text (for analysis) = '{st.session_state.dream_text}'")
+    print("--------------------------------------------------\n")
+
+    st.rerun() # UI 갱신을 위해 재실행
 
     # --- 9. 2단계: 전사된 텍스트 출력 및 분석 시작 버튼 ---
-    if st.session_state.original_dream_text: 
-        st.markdown("---")
-        st.subheader("📝 나의 악몽 이야기 (텍스트 변환 결과)")
-        st.info(st.session_state.original_dream_text)
+# ===> 이 if 문이 True가 되어야 아래 내용이 보입니다. <===
+print(f"DEBUG: Checking condition for Step 9 UI: st.session_state.original_dream_text = {bool(st.session_state.original_dream_text)}")
+if st.session_state.original_dream_text: 
+    st.markdown("---")
+    st.subheader("📝 나의 악몽 이야기 (텍스트 변환 결과)")
+    st.info(st.session_state.original_dream_text)
 
-        if st.session_state.dream_text and not st.session_state.analysis_started: 
-            if st.button("✅ 이 내용으로 꿈 분석하기"):
-                st.session_state.analysis_started = True
-                st.rerun()
-        elif not st.session_state.dream_text and st.session_state.audio_processed:
-            st.warning("입력된 꿈 내용이 안전성 검사를 통과하지 못했습니다. 분석을 진행할 수 없습니다.")
+    # ===> 이 if 문이 True가 되어야 분석 버튼이 보입니다. <===
+    print(f"DEBUG: Checking condition for Analysis Button: st.session_state.dream_text = {bool(st.session_state.dream_text)}")
+    print(f"DEBUG: Checking condition for Analysis Button: not st.session_state.analysis_started = {not st.session_state.analysis_started}")
+    if st.session_state.dream_text and not st.session_state.analysis_started: 
+        if st.button("✅ 이 내용으로 꿈 분석하기"):
+            st.session_state.analysis_started = True
+            st.rerun()
+    elif not st.session_state.dream_text and st.session_state.audio_processed:
+        st.warning("입력된 꿈 내용이 안전성 검사를 통과하지 못했습니다. 분석을 진행할 수 없습니다.")
+    else:
+        # 이 부분이 실행되면 분석 버튼이 왜 안 뜨는지 알 수 있습니다.
+        print("DEBUG: Analysis button not shown due to conditions. dream_text:", bool(st.session_state.dream_text), "analysis_started:", st.session_state.analysis_started)
 
 
     # --- 10. 3단계: 분석 시작 시 감정 분석 리포트 생성 ---
