@@ -30,6 +30,7 @@ def load_dream_text():
 if "dream_text" not in st.session_state:
     st.session_state.dream_text = ""
 
+
 if "analysis_started" not in st.session_state:
     st.session_state.analysis_started = False
 
@@ -123,6 +124,7 @@ if st.session_state.dream_text:
     st.markdown("---")
     st.subheader("📝 나의 악몽 이야기 (텍스트 변환 결과)")
     st.info(st.session_state.dream_text)
+
 
     if not st.session_state.analysis_started:
         if st.button("✅ 이 내용으로 꿈 분석하기"):
