@@ -210,51 +210,55 @@ with col_center: # 모든 UI 요소를 이 중앙 컬럼 안에 배치합니다.
 
 
     # --- 11. 4단계: 감정 분석 리포트 출력 및 이미지 생성 버튼 ---
-    if st.session_state.dream_report:
-        report = st.session_state.dream_report
-        st.markdown("---")
-        st.subheader("📊 감정 분석 리포트")
+if st.session_state.dream_report:
+    report = st.session_state.dream_report
+    st.markdown("---")
+    st.subheader("📊 감정 분석 리포트")
 
-        emotions = report.get("emotions", [])
-        if emotions:
-            st.markdown("##### 꿈 속 감정 구성:")
-            for emotion in emotions:
-                st.write(f"- {emotion.get('emotion', '알 수 없는 감정')}")
-                score = emotion.get('score', 0)
-                st.progress(score, text=f"{score*100:.1f}%")
+    emotions = report.get("emotions", [])
+    if emotions:
+        st.markdown("##### 꿈 속 감정 구성:")
+        for emotion in emotions:
+            st.write(f"- {emotion.get('emotion', '알 수 없는 감정')}")
+            score = emotion.get('score', 0)
+            st.progress(score, text=f"{score*100:.1f}%")
 
-        keywords = report.get("keywords", [])
-        if keywords:
-            st.markdown("##### 감정 키워드:")
-            keywords_str = ", ".join(f'"{keyword}"' for keyword in keywords)
-            st.code(f"[{keywords_str}]", language="json")
+    keywords = report.get("keywords", [])
+    if keywords:
+        st.markdown("##### 감정 키워드:")
+        # ===> 이 부분이 변경됩니다: st.code 대신 st.markdown 사용 <===
+        keywords_str_list = [f'<span style="color: green; font-weight: bold;">"{keyword}"</span>' for keyword in keywords]
+        keywords_html = f"[{', '.join(keywords_str_list)}]"
+        st.markdown(keywords_html, unsafe_allow_html=True)
+        # 이전 코드: st.code(f"[{keywords_str}]", language="json")
+        # =========================================================
 
-        summary = report.get("analysis_summary", "")
-        if summary:
-            st.markdown("##### 📝 종합 분석:")
-            st.info(summary)
-        
-        st.markdown("---")
-        st.subheader("🎨 꿈 이미지 생성하기")
-        st.write("분석 리포트를 바탕으로, 이제 꿈을 시각화해 보세요. 어떤 이미지를 먼저 보시겠어요?")
-        
-        col1, col2 = st.columns(2)
+    summary = report.get("analysis_summary", "")
+    if summary:
+        st.markdown("##### 📝 종합 분석:")
+        st.info(summary)
+    
+    st.markdown("---")
+    st.subheader("🎨 꿈 이미지 생성하기")
+    st.write("분석 리포트를 바탕으로, 이제 꿈을 시각화해 보세요. 어떤 이미지를 먼저 보시겠어요?")
+    
+    col1, col2 = st.columns(2)
 
-        with col1:
-            if st.button("😱 악몽 이미지 그대로 보기"):
-                with st.spinner("악몽을 시각화하는 중... 잠시만 기다려주세요."):
-                    nightmare_prompt = _dream_analyzer_service.create_nightmare_prompt(st.session_state.original_dream_text)
-                    st.session_state.nightmare_prompt = nightmare_prompt
-                    nightmare_image_url = _image_generator_service.generate_image_from_prompt(nightmare_prompt)
-                    st.session_state.nightmare_image_url = nightmare_image_url
-                    
-                    # 여기서 재구성 이미지 관련 세션 상태를 초기화하지 않습니다!
-                    # st.session_state.reconstructed_prompt = ""
-                    # st.session_state.transformation_summary = ""
-                    # st.session_state.keyword_mappings = []
-                    # st.session_state.reconstructed_image_url = ""
+    with col1:
+        if st.button("😱 악몽 이미지 그대로 보기"):
+            with st.spinner("악몽을 시각화하는 중... 잠시만 기다려주세요."):
+                nightmare_prompt = _dream_analyzer_service.create_nightmare_prompt(st.session_state.original_dream_text)
+                st.session_state.nightmare_prompt = nightmare_prompt
+                nightmare_image_url = _image_generator_service.generate_image_from_prompt(nightmare_prompt)
+                st.session_state.nightmare_image_url = nightmare_image_url
+                
+                # 재구성 이미지 관련 세션 상태는 악몽 이미지 선택 시 초기화하지 않음
+                # st.session_state.reconstructed_prompt = ""
+                # st.session_state.transformation_summary = ""
+                # st.session_state.keyword_mappings = []
+                # st.session_state.reconstructed_image_url = ""
 
-                    # st.rerun() # <-- 이 부분도 제거하여 앱이 바로 재실행되지 않도록 합니다.
+                # st.rerun() # <-- 이 부분도 제거하여 앱이 바로 재실행되지 않도록 합니다.
 
         with col2:
             if st.button("✨ 재구성된 꿈 이미지 보기"):
@@ -271,14 +275,13 @@ with col_center: # 모든 UI 요소를 이 중앙 컬럼 안에 배치합니다.
                     reconstructed_image_url = _image_generator_service.generate_image_from_prompt(reconstructed_prompt)
                     st.session_state.reconstructed_image_url = reconstructed_image_url
 
-                    # 여기서 악몽 이미지 관련 세션 상태를 초기화하지 않습니다!
+                    # 악몽 이미지 관련 세션 상태는 재구성 이미지 선택 시 초기화하지 않음
                     # st.session_state.nightmare_prompt = ""
                     # st.session_state.nightmare_image_url = ""
 
                     # st.rerun() # <-- 이 부분도 제거하여 앱이 바로 재실행되지 않도록 합니다.
 
     # --- 12. 5단계: 생성된 이미지 표시 ---
-    # 이 섹션은 두 이미지 URL이 모두 세션 상태에 존재하면 자동으로 둘 다 표시합니다.
     if st.session_state.nightmare_image_url or st.session_state.reconstructed_image_url:
         st.markdown("---")
         st.subheader("생성된 꿈 이미지")
@@ -294,40 +297,11 @@ with col_center: # 모든 UI 요소를 이 중앙 컬럼 안에 배치합니다.
                     # 악몽 이미지 아래 키워드 표시
                     if st.session_state.dream_report and st.session_state.dream_report.get("keywords"):
                         st.markdown("##### 악몽 관련 키워드:")
+                        # ===> 여기도 동일하게 변경됩니다: st.code 대신 st.markdown 사용 <===
                         keywords = st.session_state.dream_report["keywords"]
-                        keywords_str = ", ".join(f'"{keyword}"' for keyword in keywords)
-                        st.code(f"[{keywords_str}]", language="json")
+                        keywords_str_list = [f'<span style="color: red; font-weight: bold;">"{keyword}"</span>' for keyword in keywords]
+                        keywords_html = f"[{', '.join(keywords_str_list)}]"
+                        st.markdown(keywords_html, unsafe_allow_html=True)
+                        # ===============================================================
                 else:
                     st.error(f"악몽 이미지 생성 실패: {st.session_state.nightmare_image_url}")
-
-        with img_col2:
-            if st.session_state.reconstructed_image_url:
-                if st.session_state.reconstructed_image_url.startswith("http"):
-                    st.image(st.session_state.reconstructed_image_url, caption="재구성된 꿈")
-                    with st.expander("생성 프롬프트 보기"):
-                        highlighted_prompt = st.session_state.reconstructed_prompt
-                        for mapping in st.session_state.keyword_mappings:
-                            original_concept = mapping.get("original")
-                            transformed_concept = mapping.get("transformed")
-                            if transformed_concept and transformed_concept in highlighted_prompt:
-                                highlighted_prompt = highlighted_prompt.replace(
-                                    transformed_concept,
-                                    f'**<span style="color: blue; font-weight: bold;">{transformed_concept}</span>**'
-                                )
-                        st.markdown(highlighted_prompt, unsafe_allow_html=True)
-
-                    if st.session_state.transformation_summary:
-                        st.markdown("---")
-                        st.subheader("💡 꿈 변환 요약")
-                        st.info(st.session_state.transformation_summary)
-                    
-                    if st.session_state.keyword_mappings:
-                        st.markdown("---")
-                        st.subheader("↔️ 주요 변환 요소:")
-                        for mapping in st.session_state.keyword_mappings:
-                            original = mapping.get('original', '알 수 없음')
-                            transformed = mapping.get('transformed', '알 수 없음')
-                            st.write(f"- **{original}** ➡️ **{transformed}**")
-                    
-                else:
-                    st.error(f"재구성된 꿈 이미지 생성 실패: {st.session_state.reconstructed_image_url}")
