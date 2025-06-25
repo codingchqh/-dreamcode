@@ -18,7 +18,7 @@ openai_api_key = settings.OPENAI_API_KEY
 
 if not openai_api_key:
     st.error("OPENAI_API_KEY 환경 변수가 설정되지 않았습니다. 시스템 환경 변수를 확인하거나 'core/config.py' 파일을 설정해주세요.")
-    st.stop()
+    st.stop() # API 키가 없으면 애플리케이션 실행을 중단합니다.
 
 _stt_service = stt_service.STTService(api_key=openai_api_key)
 _dream_analyzer_service = dream_analyzer_service.DreamAnalyzerService(api_key=openai_api_key)
@@ -28,6 +28,10 @@ _report_generator_service = report_generator_service.ReportGeneratorService(api_
 
 # --- 3. 로고 이미지 로딩 및 표시 ---
 def get_base64_image(image_path):
+    """
+    주어진 경로의 이미지를 base64 문자열로 인코딩합니다.
+    파일을 찾을 수 없거나 로드 오류 시 None을 반환합니다.
+    """
     try:
         with open(image_path, "rb") as img_file:
             return base64.b64encode(img_file.read()).decode()
@@ -39,8 +43,8 @@ def get_base64_image(image_path):
         return None
 
 logo_dir = "user_data/image"
-os.makedirs(logo_dir, exist_ok=True)
-logo_path = os.path.join(logo_dir, "Logo.png")
+os.makedirs(logo_dir, exist_ok=True) # 로고 이미지를 위한 디렉토리 생성
+logo_path = os.path.join(logo_dir, "Logo.png") # 로고 파일명은 'Logo.png'로 가정
 
 logo_base64 = get_base64_image(logo_path)
 
@@ -282,25 +286,31 @@ if st.session_state.nightmare_image_url or st.session_state.reconstructed_image_
                     for mapping in st.session_state.keyword_mappings:
                         original_concept = mapping.get("original")
                         transformed_concept = mapping.get("transformed")
-                        if transformed_concept: # 변환된 개념이 프롬프트에 있다면 강조
+                        if transformed_concept and transformed_concept in highlighted_prompt: # 프롬프트에 변환된 개념이 있는지 확인
                             # HTML 마크다운으로 강조
+                            # replace 대신 regex나 더 정교한 방법 사용을 권장하지만, 간단한 예시로 replace 사용
                             highlighted_prompt = highlighted_prompt.replace(
                                 transformed_concept,
-                                f'<span style="color: blue; font-weight: bold;">{transformed_concept}</span>'
+                                f'**<span style="color: blue; font-weight: bold;">{transformed_concept}</span>**'
                             )
                     st.markdown(highlighted_prompt, unsafe_allow_html=True) # HTML 마크다운으로 표시
 
-                # 변환 요약 섹션 추가
+                # --- 📌 새로 추가된 UI 요소: 변환 요약 섹션 ---
                 if st.session_state.transformation_summary:
-                    st.markdown("---") # 구분선
+                    st.markdown("---") # 구분선 추가
                     st.subheader("💡 꿈 변환 요약")
-                    st.info(st.session_state.transformation_summary)
+                    st.info(st.session_state.transformation_summary) # 요약 텍스트를 info 박스로 표시
                 
-                # 원본 키워드와 변환된 키워드 대조 (선택 사항, 필요 시 추가)
-                # if st.session_state.keyword_mappings:
-                #     st.markdown("##### ↔️ 주요 변환 요소:")
-                #     for mapping in st.session_state.keyword_mappings:
-                #         st.write(f"- **{mapping.get('original', '알 수 없음')}** ➡️ **{mapping.get('transformed', '알 수 없음')}**")
+                # --- 📌 새로 추가된 UI 요소: 원본 키워드와 변환된 키워드 대조 (선택 사항) ---
+                # 이 부분은 필요에 따라 주석을 해제하고 사용하세요.
+                if st.session_state.keyword_mappings:
+                    st.markdown("---") # 구분선 추가
+                    st.subheader("↔️ 주요 변환 요소")
+                    for mapping in st.session_state.keyword_mappings:
+                        original = mapping.get('original', '알 수 없음')
+                        transformed = mapping.get('transformed', '알 수 없음')
+                        st.write(f"- **{original}** ➡️ **{transformed}**")
                 
             else:
                 st.error(f"재구성된 꿈 이미지 생성 실패: {st.session_state.reconstructed_image_url}")
+
