@@ -90,17 +90,15 @@ if st.session_state.dream_text and not st.session_state.analysis_started:
         st.session_state.analysis_started = True
         st.rerun()
 
-# --- 로직 3단계: 리포트 생성 ---
+# [로직 3단계] 리포트 생성
 if st.session_state.analysis_started and not st.session_state.dream_report:
-    with st.spinner("콘텐츠를 안전하게 변환하고 리포트를 생성하는 중입니다... 🧠"):
-        derisked_text = dream_analyzer_service.derisk_dream_text(st.session_state.dream_text)
-        st.session_state.derisked_text = derisked_text
-        
-        dream_report = report_generator_service.generate_report(derisked_text)
+    with st.spinner("꿈 내용을 분석하여 리포트를 생성하는 중입니다... 🧠"):
+        # [수정됨] 이제 원본 텍스트를 리포트 생성에 바로 사용합니다.
+        dream_report = report_generator_service.generate_report(st.session_state.dream_text)
         st.session_state.dream_report = dream_report
         st.rerun()
 
-# --- 로직 4단계: 최종 결과 표시 (리포트 + 이미지 생성 버튼) ---
+# [로직 4단계] 최종 결과 표시 (리포트 + 이미지 생성 버튼)
 if st.session_state.get('dream_report'):
     report = st.session_state.dream_report
     st.markdown("---")
@@ -135,7 +133,8 @@ if st.session_state.get('dream_report'):
     with col1:
         if st.button("😱 악몽 이미지 그대로 보기"):
             with st.spinner("악몽을 시각화하는 중... 잠시만 기다려주세요."):
-                nightmare_prompt = dream_analyzer_service.create_nightmare_prompt(st.session_state.derisked_text)
+                # [수정됨] 원본 텍스트를 바로 전달합니다.
+                nightmare_prompt = dream_analyzer_service.create_nightmare_prompt(st.session_state.dream_text)
                 st.session_state.nightmare_prompt = nightmare_prompt
                 nightmare_image_url = image_generator_service.generate_image_from_prompt(nightmare_prompt)
                 st.session_state.nightmare_image_url = nightmare_image_url
@@ -144,7 +143,8 @@ if st.session_state.get('dream_report'):
     with col2:
         if st.button("✨ 재구성된 꿈 이미지 보기"):
             with st.spinner("악몽을 긍정적인 꿈으로 재구성하는 중... 🌈"):
-                reconstructed_prompt = dream_analyzer_service.create_reconstructed_prompt(st.session_state.derisked_text)
+                # [수정됨] 원본 텍스트를 바로 전달합니다.
+                reconstructed_prompt = dream_analyzer_service.create_reconstructed_prompt(st.session_state.dream_text)
                 st.session_state.reconstructed_prompt = reconstructed_prompt
                 reconstructed_image_url = image_generator_service.generate_image_from_prompt(reconstructed_prompt)
                 st.session_state.reconstructed_image_url = reconstructed_image_url
