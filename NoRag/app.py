@@ -4,12 +4,7 @@ from PIL import Image
 from services import stt_service, dream_analyzer_service, image_generator_service, moderation_service, report_generator_service
 from st_audiorec import st_audiorec
 
-# --- 페이지 설정 ---
-st.set_page_config(
-    page_title="보여dream | 당신의 악몽을 재구성합니다",
-    page_icon="🌙",
-    layout="wide"
-)
+
 # 로고 + 타이틀 수평 정렬
 st.markdown(
     """
