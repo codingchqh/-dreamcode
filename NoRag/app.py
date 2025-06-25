@@ -227,7 +227,7 @@ if st.session_state.dream_report:
     if keywords:
         st.markdown("##### 감정 키워드:")
         # ===> 이 부분이 변경됩니다: st.code 대신 st.markdown 사용 <===
-        keywords_str_list = [f'<span style="color: green; font-weight: bold;">"{keyword}"</span>' for keyword in keywords]
+        keywords_str_list = [f'<span style="color: red; font-weight: bold;">"{keyword}"</span>' for keyword in keywords]
         keywords_html = f"[{', '.join(keywords_str_list)}]"
         st.markdown(keywords_html, unsafe_allow_html=True)
         # 이전 코드: st.code(f"[{keywords_str}]", language="json")
