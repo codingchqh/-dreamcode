@@ -289,8 +289,14 @@ with col_center: # 모든 UI 요소를 이 중앙 컬럼 안에 배치합니다.
                     st.image(st.session_state.nightmare_image_url, caption="악몽 시각화")
                     with st.expander("생성 프롬프트 보기"):
                         st.write(st.session_state.nightmare_prompt)
-                else:
-                    st.error(f"악몽 이미지 생성 실패: {st.session_state.nightmare_image_url}")
+                    # 악몽 이미지 아래 키워드 표시
+                    if st.session_state.dream_report and st.session_state.dream_report.get("keywords"):
+                        st.markdown("##### 악몽 관련 키워드:")
+                        keywords = st.session_state.dream_report["keywords"]
+                        keywords_str = ", ".join(f'"{keyword}"' for keyword in keywords)
+                        st.code(f"[{keywords_str}]", language="json")
+            else:
+                st.error(f"악몽 이미지 생성 실패: {st.session_state.nightmare_image_url}")
 
         with img_col2:
             if st.session_state.reconstructed_image_url:
