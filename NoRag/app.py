@@ -3,29 +3,30 @@ import os
 from PIL import Image
 from services import stt_service, dream_analyzer_service, image_generator_service, moderation_service, report_generator_service
 from st_audiorec import st_audiorec
+import base64
 
-# --- 페이지 설정 ---
-st.set_page_config(
-    page_title="보여dream | 당신의 악몽을 재구성합니다",
-    page_icon="🌙",
-    layout="wide"
-)
-# 로고 이미지 삽입 (파일 경로는 상대경로 또는 절대경로로)
-logo_path = "C:/Users/user/Desktop/qqq/NoRag/NoRag/user_data/image/Logo.png"  # 로고 이미지가 현재 디렉토리에 있어야 함
-# 로고 + 타이틀 수평 정렬
+# base64로 이미지 인코딩 (업로드한 파일 기준)
+def get_base64_image(image_path):
+    with open(image_path, "rb") as img_file:
+        return base64.b64encode(img_file.read()).decode()
+
+# 로고 이미지 경로
+logo_path = "b52fda47-d21c-429e-9b42-79210efb5243.png"  # 업로드된 로고 파일명과 경로에 맞게 조정
+
+# base64 인코딩된 이미지 불러오기
+logo_base64 = get_base64_image(logo_path)
+
+# 로고 + 타이틀 정렬
 st.markdown(
-    """
+    f"""
     <div style="display: flex; align-items: center; margin-bottom: 1rem;">
-        <img src="Logo.png" width="80" style="margin-right: 20px;">
-        <h1 style="margin: 0; font-size: 2.5rem;">보여dream 🌙</h1>
+        <img src="data:image/png;base64,{logo_base64}" width="60" style="margin-right: 20px;">
+        <h1 style="margin: 0;">보여dream 🌙</h1>
     </div>
     """,
     unsafe_allow_html=True
 )
 
-
-# 로고 표시
-st.image(Image.open(logo_path), width=200)  # 너비는 원하는 값으로 조정
 
 # 제목 등 UI 구성 계속 진행
 
