@@ -77,8 +77,7 @@ def initialize_session_state():
     st.session_state.analysis_started = False
 
 # --- UI 구성 ---
-st.title("보여dream 🌙")
-st.write("악몽을 녹음하거나 파일을 업로드해 주세요.")
+
 
 tab1, tab2 = st.tabs(["🎤 실시간 녹음하기", "📁 오디오 파일 업로드"])
 
