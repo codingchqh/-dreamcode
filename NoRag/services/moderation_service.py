@@ -1,42 +1,13 @@
-# services/moderation_service.py (수정 전)
-# from core.config import API_KEY # <-- 이 부분이 오류의 원인입니다.
-
-# services/moderation_service.py (수정 후)
-
 from openai import OpenAI
-# config.py에서 settings 객체를 임포트합니다.
-from core.config import settings # 이 줄을 추가/수정합니다.
+from core.config import API_KEY
+from langchain.chains.moderation import OpenAIModerationChain
 
-class ModerationService:
-    def __init__(self, api_key: str):
-        # 이제 api_key는 생성자를 통해 외부(main.py)에서 주입받습니다.
-        self.client = OpenAI(api_key=api_key)
+moderation_chain = OpenAIModerationChain(client=OpenAI(api_key=API_KEY))
 
-    def check_text_safety(self, text: str) -> dict:
-        try:
-            response = self.client.moderations.create(input=text)
-            moderation_result = response.results[0]
-            
-            if moderation_result.flagged:
-                # 어떤 카테고리가 플래그되었는지 더 상세한 정보를 반환
-                flagged_categories = [
-                    cat for cat, flag in moderation_result.categories.model_dump().items() if flag
-                ]
-                return {
-                    "flagged": True,
-                    "text": f"입력된 내용이 안전 정책을 위반할 수 있습니다: {', '.join(flagged_categories)}",
-                    "details": moderation_result.model_dump()
-                }
-            else:
-                return {
-                    "flagged": False,
-                    "text": "안전합니다.",
-                    "details": moderation_result.model_dump()
-                }
-        except Exception as e:
-            print(f"Error during moderation check: {e}")
-            return {
-                "flagged": True,
-                "text": f"안전성 검사 중 오류가 발생했습니다: {e}",
-                "details": {"error": str(e)}
-            }
+def check_text_safety(text: str) -> dict:
+    try:
+        moderated_text = moderation_chain.run(text)
+        return {"flagged": False, "text": moderated_text}
+    except ValueError as e:
+        print(f"[MODERATION] 콘텐츠 정책 위반 감지: {e}")
+        return {"flagged": True, "text": f"입력하신 내용에 부적절한 표현이 포함되어 있어 처리할 수 없습니다. (감지된 정책: {e})"}
