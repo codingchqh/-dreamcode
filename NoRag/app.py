@@ -4,13 +4,13 @@ from PIL import Image
 from services import stt_service, dream_analyzer_service, image_generator_service, moderation_service, report_generator_service
 from st_audiorec import st_audiorec
 import base64
-import core.config # core/config.py 모듈 자체를 임포트하여 load_dotenv가 실행되도록 합니다.
+import core.config
 
 # --- 1. 페이지 설정 (반드시 모든 st. 명령보다 먼저 와야 합니다!) ---
 st.set_page_config(
     page_title="보여dream | 당신의 악몽을 재구성합니다",
     page_icon="🌙",
-    layout="wide" # 전체 폭을 사용하되, 내부에서 컬럼으로 중앙 정렬
+    layout="wide"
 )
 
 # --- 2. API 키 로드 및 서비스 초기화 ---
@@ -44,8 +44,7 @@ logo_path = os.path.join(logo_dir, "Logo.png")
 
 logo_base64 = get_base64_image(logo_path)
 
-# --- UI 중앙 정렬을 위한 컬럼 설정 (가장 중요한 변경 부분) ---
-# 좌측 여백, 중앙 콘텐츠, 우측 여백 비율 (예: 1:4:1 비율로 중앙 콘텐츠가 전체 폭의 4/6 차지)
+# --- UI 중앙 정렬을 위한 컬럼 설정 ---
 col_left, col_center, col_right = st.columns([1, 4, 1]) 
 
 with col_center: # 모든 UI 요소를 이 중앙 컬럼 안에 배치합니다.
@@ -82,7 +81,7 @@ with col_center: # 모든 UI 요소를 이 중앙 컬럼 안에 배치합니다.
     # --- 5. 세션 상태 기본값 초기화 (앱 시작 시) ---
     if "dream_text" not in st.session_state:
         st.session_state.dream_text = ""
-    if "original_dream_text" not in st.session_state: # 원본 텍스트 저장을 위한 새 변수
+    if "original_dream_text" not in st.session_state:
         st.session_state.original_dream_text = ""
 
     if "analysis_started" not in st.session_state:
@@ -249,12 +248,13 @@ with col_center: # 모든 UI 요소를 이 중앙 컬럼 안에 배치합니다.
                     nightmare_image_url = _image_generator_service.generate_image_from_prompt(nightmare_prompt)
                     st.session_state.nightmare_image_url = nightmare_image_url
                     
-                    st.session_state.reconstructed_prompt = ""
-                    st.session_state.transformation_summary = ""
-                    st.session_state.keyword_mappings = []
-                    st.session_state.reconstructed_image_url = ""
+                    # 여기서 재구성 이미지 관련 세션 상태를 초기화하지 않습니다!
+                    # st.session_state.reconstructed_prompt = ""
+                    # st.session_state.transformation_summary = ""
+                    # st.session_state.keyword_mappings = []
+                    # st.session_state.reconstructed_image_url = ""
 
-                    st.rerun()
+                    # st.rerun() # <-- 이 부분도 제거하여 앱이 바로 재실행되지 않도록 합니다.
 
         with col2:
             if st.button("✨ 재구성된 꿈 이미지 보기"):
@@ -271,12 +271,14 @@ with col_center: # 모든 UI 요소를 이 중앙 컬럼 안에 배치합니다.
                     reconstructed_image_url = _image_generator_service.generate_image_from_prompt(reconstructed_prompt)
                     st.session_state.reconstructed_image_url = reconstructed_image_url
 
-                    st.session_state.nightmare_prompt = ""
-                    st.session_state.nightmare_image_url = ""
+                    # 여기서 악몽 이미지 관련 세션 상태를 초기화하지 않습니다!
+                    # st.session_state.nightmare_prompt = ""
+                    # st.session_state.nightmare_image_url = ""
 
-                    st.rerun()
+                    # st.rerun() # <-- 이 부분도 제거하여 앱이 바로 재실행되지 않도록 합니다.
 
     # --- 12. 5단계: 생성된 이미지 표시 ---
+    # 이 섹션은 두 이미지 URL이 모두 세션 상태에 존재하면 자동으로 둘 다 표시합니다.
     if st.session_state.nightmare_image_url or st.session_state.reconstructed_image_url:
         st.markdown("---")
         st.subheader("생성된 꿈 이미지")
@@ -295,8 +297,8 @@ with col_center: # 모든 UI 요소를 이 중앙 컬럼 안에 배치합니다.
                         keywords = st.session_state.dream_report["keywords"]
                         keywords_str = ", ".join(f'"{keyword}"' for keyword in keywords)
                         st.code(f"[{keywords_str}]", language="json")
-            else:
-                st.error(f"악몽 이미지 생성 실패: {st.session_state.nightmare_image_url}")
+                else:
+                    st.error(f"악몽 이미지 생성 실패: {st.session_state.nightmare_image_url}")
 
         with img_col2:
             if st.session_state.reconstructed_image_url:
