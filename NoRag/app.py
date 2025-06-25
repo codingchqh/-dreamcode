@@ -21,6 +21,7 @@ def initialize_session_state():
     st.session_state.nightmare_image_url = ""
     st.session_state.reconstructed_image_url = ""
     st.session_state.audio_processed = False
+    st.session_state.analysis_started = False
 
 # 앱이 처음 로드될 때 세션 상태를 설정합니다.
 if 'audio_processed' not in st.session_state:
@@ -53,7 +54,7 @@ with tab2:
         audio_bytes = uploaded_file.getvalue()
         file_name = uploaded_file.name
 
-# --- 통합 오디오 처리 로직 ---
+# --- 로직 1단계: 오디오 처리 및 텍스트 변환 ---
 if audio_bytes is not None and not st.session_state.audio_processed:
     initialize_session_state()
     
@@ -75,18 +76,31 @@ if audio_bytes is not None and not st.session_state.audio_processed:
     
     os.remove(audio_path)
     
-    if st.session_state.dream_text:
-        with st.spinner("콘텐츠를 안전하게 변환하고 리포트를 생성하는 중입니다... 🧠"):
-            derisked_text = dream_analyzer_service.derisk_dream_text(st.session_state.dream_text)
-            st.session_state.derisked_text = derisked_text
-            
-            dream_report = report_generator_service.generate_report(derisked_text)
-            st.session_state.dream_report = dream_report
-
     st.session_state.audio_processed = True
     st.rerun()
 
-# --- 감정 분석 리포트 표시 ---
+# --- 로직 2단계: 변환된 텍스트 표시 및 분석 시작 버튼 ---
+if st.session_state.dream_text and not st.session_state.analysis_started:
+    st.markdown("---")
+    st.subheader("📝 나의 악몽 이야기 (텍스트 변환 결과)")
+    st.info(st.session_state.dream_text)
+    
+    st.markdown("") # 여백
+    if st.button("✅ 이 내용으로 꿈 분석하기"):
+        st.session_state.analysis_started = True
+        st.rerun()
+
+# --- 로직 3단계: 리포트 생성 ---
+if st.session_state.analysis_started and not st.session_state.dream_report:
+    with st.spinner("콘텐츠를 안전하게 변환하고 리포트를 생성하는 중입니다... 🧠"):
+        derisked_text = dream_analyzer_service.derisk_dream_text(st.session_state.dream_text)
+        st.session_state.derisked_text = derisked_text
+        
+        dream_report = report_generator_service.generate_report(derisked_text)
+        st.session_state.dream_report = dream_report
+        st.rerun()
+
+# --- 로직 4단계: 최종 결과 표시 (리포트 + 이미지 생성 버튼) ---
 if st.session_state.get('dream_report'):
     report = st.session_state.dream_report
     st.markdown("---")
@@ -110,9 +124,8 @@ if st.session_state.get('dream_report'):
     if summary:
         st.markdown("##### 📝 종합 분석:")
         st.info(summary)
-
-# --- 이미지 생성 버튼 표시 ---
-if st.session_state.get('derisked_text'):
+    
+    # 이미지 생성 버튼 표시
     st.markdown("---")
     st.subheader("🎨 꿈 이미지 생성하기")
     st.write("분석 리포트를 바탕으로, 이제 꿈을 시각화해 보세요.")
