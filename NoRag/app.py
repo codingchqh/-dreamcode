@@ -162,19 +162,19 @@ if st.session_state.analysis_started and st.session_state.dream_report is None:
 if st.session_state.dream_report:
     report = st.session_state.dream_report
     st.markdown("---")
-    st.subheader("📊 감정 분석 리포트")
+    st.subheader("📊 정서 분석 리포트")
 
     emotions = report.get("emotions", [])
     if emotions:
-        st.markdown("##### 꿈 속 감정 구성:")
+        st.markdown("##### 꿈 속 정서 구성:")
         for emotion in emotions:
-            st.write(f"- {emotion.get('emotion', '알 수 없는 감정')}")
+            st.write(f"- {emotion.get('emotion', '알 수 없는 정서')}")
             score = emotion.get('score', 0)
             st.progress(score, text=f"{score}%")
 
     keywords = report.get("keywords", [])
     if keywords:
-        st.markdown("##### 감정 키워드:")
+        st.markdown("##### 정서 키워드:")
         keywords_str = ", ".join(f'"{keyword}"' for keyword in keywords)
         st.code(f"[{keywords_str}]", language="json")
 
