@@ -10,10 +10,25 @@ st.set_page_config(
     layout="wide"
 )
 
+# 텍스트 저장 경로
+dream_text_path = "user_data/dream_text.txt"
+os.makedirs("user_data", exist_ok=True)
+
+# 텍스트 저장 함수
+def save_dream_text(text):
+    with open(dream_text_path, "w", encoding="utf-8") as f:
+        f.write(text)
+
+# 텍스트 불러오기 함수
+def load_dream_text():
+    if os.path.exists(dream_text_path):
+        with open(dream_text_path, "r", encoding="utf-8") as f:
+            return f.read()
+    return None
+
 # --- 세션 상태 초기화 함수 ---
 def initialize_session_state():
-    """새로운 오디오 입력이 들어올 때마다 이전 결과들을 초기화합니다."""
-    st.session_state.dream_text = ""
+    # dream_text는 유지 (초기화하지 않음)
     st.session_state.derisked_text = ""
     st.session_state.dream_report = None
     st.session_state.nightmare_prompt = ""
@@ -22,10 +37,6 @@ def initialize_session_state():
     st.session_state.reconstructed_image_url = ""
     st.session_state.audio_processed = False
     st.session_state.analysis_started = False
-
-# 앱이 처음 로드될 때 세션 상태를 설정합니다.
-if 'audio_processed' not in st.session_state:
-    initialize_session_state()
 
 # --- UI 구성 ---
 st.title("보여dream 🌙")
@@ -55,7 +66,7 @@ with tab2:
         file_name = uploaded_file.name
 
 # --- 로직 1단계: 오디오 처리 및 텍스트 변환 ---
-if audio_bytes is not None and not st.session_state.audio_processed:
+if audio_bytes is not None and not st.session_state.get("audio_processed", False):
     initialize_session_state()
     
     audio_dir = "user_data/audio"
@@ -80,7 +91,7 @@ if audio_bytes is not None and not st.session_state.audio_processed:
     st.rerun()
 
 # --- 로직 2단계: 변환된 텍스트 표시 및 분석 시작 버튼 ---
-if st.session_state.dream_text and not st.session_state.analysis_started:
+if st.session_state.get("dream_text") and not st.session_state.get("analysis_started", False):
     st.markdown("---")
     st.subheader("📝 나의 악몽 이야기 (텍스트 변환 결과)")
     st.info(st.session_state.dream_text)
@@ -91,9 +102,8 @@ if st.session_state.dream_text and not st.session_state.analysis_started:
         st.rerun()
 
 # [로직 3단계] 리포트 생성
-if st.session_state.analysis_started and not st.session_state.dream_report:
+if st.session_state.get("analysis_started", False) and not st.session_state.get("dream_report"):
     with st.spinner("꿈 내용을 분석하여 리포트를 생성하는 중입니다... 🧠"):
-        # [수정됨] 이제 원본 텍스트를 리포트 생성에 바로 사용합니다.
         dream_report = report_generator_service.generate_report(st.session_state.dream_text)
         st.session_state.dream_report = dream_report
         st.rerun()
@@ -133,7 +143,6 @@ if st.session_state.get('dream_report'):
     with col1:
         if st.button("😱 악몽 이미지 그대로 보기"):
             with st.spinner("악몽을 시각화하는 중... 잠시만 기다려주세요."):
-                # [수정됨] 원본 텍스트를 바로 전달합니다.
                 nightmare_prompt = dream_analyzer_service.create_nightmare_prompt(st.session_state.dream_text)
                 st.session_state.nightmare_prompt = nightmare_prompt
                 nightmare_image_url = image_generator_service.generate_image_from_prompt(nightmare_prompt)
@@ -143,7 +152,6 @@ if st.session_state.get('dream_report'):
     with col2:
         if st.button("✨ 재구성된 꿈 이미지 보기"):
             with st.spinner("악몽을 긍정적인 꿈으로 재구성하는 중... 🌈"):
-                # [수정됨] 원본 텍스트를 바로 전달합니다.
                 reconstructed_prompt = dream_analyzer_service.create_reconstructed_prompt(st.session_state.dream_text)
                 st.session_state.reconstructed_prompt = reconstructed_prompt
                 reconstructed_image_url = image_generator_service.generate_image_from_prompt(reconstructed_prompt)
