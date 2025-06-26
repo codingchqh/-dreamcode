@@ -40,7 +40,7 @@ def get_base64_image(image_path):
 
 logo_dir = "user_data/image"
 os.makedirs(logo_dir, exist_ok=True)
-logo_path = os.path.join(logo_dir, "보여dream로고.png")
+logo_path = os.path.join(logo_dir, "보여dream로고 투명.png")
 chatbot_image_path = os.path.join(logo_dir, "나비몽 챗봇.png") # 나비몽 챗봇 이미지 경로 추가
 
 logo_base64 = get_base64_image(logo_path)
