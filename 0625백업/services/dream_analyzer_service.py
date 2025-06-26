@@ -72,7 +72,6 @@ class DreamAnalyzerService:
         emotions_info = "; ".join(emotion_summary_list) if emotion_summary_list else "No specific emotions detected."
 
         # 1. 재구성 이미지 프롬프트 생성
-        # 이제 {keywords_info}와 {emotions_info}는 LangChain의 PromptTemplate 변수입니다.
         reconstruction_system_prompt = """
         You are a wise and empathetic dream therapist. Your goal is to reframe the user's nightmare into an image of peace, healing, and hope.
         
@@ -88,21 +87,17 @@ class DreamAnalyzerService:
         
         The final output must be a single-paragraph, English image prompt that is safe and positive. It must NOT contain any text or writing.
         """
-        # Note: The `system_prompt` itself is now the template for LangChain
-        # 우리는 system_prompt와 user_prompt를 하나의 PromptTemplate 문자열로 결합합니다.
         combined_template_for_reconstruction = reconstruction_system_prompt + "\nUser's nightmare description (Korean): {dream_text}"
 
         reconstruction_chain = PromptTemplate.from_template(combined_template_for_reconstruction) | self.llm | self.output_parser
         
-        # invoke 호출 시 모든 필요한 변수를 전달합니다.
         reconstructed_prompt = reconstruction_chain.invoke({
             "dream_text": dream_text,
-            "keywords_info": keywords_info, # 새로운 변수 추가
-            "emotions_info": emotions_info  # 새로운 변수 추가
+            "keywords_info": keywords_info,
+            "emotions_info": emotions_info
         })
 
         # 2. 변환 요약 텍스트 생성
-        # 이 요약 프롬프트도 새로 정의된 변수들을 사용합니다.
         summary_system_prompt = """
         You are an AI assistant specialized in summarizing dream transformations.
         Given the original nightmare text, the identified keywords, and the reconstructed image prompt,
@@ -119,11 +114,10 @@ class DreamAnalyzerService:
         transformation_summary = summary_chain.invoke({
             "dream_text": dream_text,
             "keywords_info": keywords_info,
-            "reconstructed_prompt": reconstructed_prompt # reconstructed_prompt를 변수로 전달
+            "reconstructed_prompt": reconstructed_prompt
         })
 
         # 3. 키워드 매핑 생성
-        # JSON 예시 내의 중괄호는 PromptTemplate에 의해 변수로 오해되지 않도록 {{ }}로 이스케이프합니다.
         mapping_system_prompt = """
         Given the original nightmare keywords and the reconstructed image prompt, identify 3-5 key concepts from the original nightmare that were most significantly reinterpreted or transformed into positive elements in the reconstructed prompt.
         For each, provide the original concept (from the keywords) and its positively reinterpreted counterpart found in the reconstructed prompt.
@@ -135,13 +129,11 @@ class DreamAnalyzerService:
         mapping_chain = PromptTemplate.from_template(mapping_system_prompt) | self.llm | self.output_parser
         
         try:
-            # invoke 호출 시 필요한 변수를 전달합니다.
             mapping_raw = mapping_chain.invoke({
                 "keywords_info": keywords_info,
                 "reconstructed_prompt": reconstructed_prompt
             })
             
-            # JSON 파싱 로직 (이전과 동일)
             if raw_response := mapping_raw.strip():
                 if raw_response.startswith("```json") and raw_response.endswith("```"):
                     json_str = raw_response[7:-3].strip()
@@ -164,5 +156,18 @@ class DreamAnalyzerService:
         except Exception as e:
             print(f"경고: 키워드 매핑 생성 중 예상치 못한 오류: {e}")
             keyword_mappings = []
+
+        # ===> 여기에 '지배' 키워드를 '화합'으로 바꾸는 로직을 추가합니다. <===
+        if "지배" in keywords: # 원래 악몽 키워드에 '지배'가 포함되어 있다면
+            found_domination_mapping = False
+            for item in keyword_mappings:
+                if item.get("original") == "지배":
+                    item["transformed"] = "화합" # 기존 매핑을 '화합'으로 강제 변경
+                    found_domination_mapping = True
+                    break
+            if not found_domination_mapping:
+                # '지배' 키워드가 있었는데 LLM이 매핑에 포함하지 않았다면 새로 추가
+                keyword_mappings.append({"original": "지배", "transformed": "화합"})
+        # ===================================================================
 
         return reconstructed_prompt, transformation_summary, keyword_mappings
