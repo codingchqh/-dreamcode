@@ -41,8 +41,10 @@ def get_base64_image(image_path):
 logo_dir = "user_data/image"
 os.makedirs(logo_dir, exist_ok=True)
 logo_path = os.path.join(logo_dir, "보여dream로고.png")
+chatbot_image_path = os.path.join(logo_dir, "나비봉 챗봇.png") # 나비봉 챗봇 이미지 경로 추가
 
 logo_base64 = get_base64_image(logo_path)
+chatbot_image_base64 = get_base64_image(chatbot_image_path) # 나비봉 챗봇 이미지 로드
 
 # --- UI 중앙 정렬을 위한 컬럼 설정 ---
 col_left, col_center, col_right = st.columns([1, 4, 1]) 
@@ -61,8 +63,6 @@ with col_center: # 모든 UI 요소를 이 중앙 컬럼 안에 배치합니다.
         )
     else:
         st.title("보여dream 🌙")
-
-    st.write("악몽을 녹음하거나 파일을 업로드해 주세요.")
 
     # --- 4. 텍스트 저장/로드 함수 및 경로 설정 ---
     dream_text_path = "user_data/dream_text.txt"
@@ -129,6 +129,21 @@ with col_center: # 모든 UI 요소를 이 중앙 컬럼 안에 배치합니다.
         st.session_state.audio_processed = False
         st.session_state.analysis_started = False
 
+    # --- 초기 챗봇 이미지 및 메시지 ---
+    # 녹음이 시작되거나 분석이 시작되지 않은 경우에만 표시
+    if not st.session_state.audio_processed and not st.session_state.analysis_started:
+        if chatbot_image_base64:
+            st.markdown(
+                f"""
+                <div style="text-align: center; margin-bottom: 2rem;">
+                    <img src="data:image/png;base64,{chatbot_image_base64}" width="150" style="border-radius: 50%;">
+                    <p style="font-size: 1.2em; font-weight: bold; margin-top: 10px;">안녕하세요! 당신의 악몽을 함께 탐험할 나비봉 챗봇입니다. 악몽을 녹음하거나 파일을 업로드해 주세요!</p>
+                </div>
+                """,
+                unsafe_allow_html=True
+            )
+        # 이전에 st.write("악몽을 녹음하거나 파일을 업로드해 주세요.") 가 있었는데, 챗봇 메시지에 포함했습니다.
+
     # --- 7. UI 구성: 오디오 입력 부분 ---
     tab1, tab2 = st.tabs(["🎤 실시간 녹음하기", "📁 오디오 파일 업로드"])
 
@@ -179,7 +194,17 @@ with col_center: # 모든 UI 요소를 이 중앙 컬럼 안에 배치합니다.
                 st.session_state.dream_text = transcribed_text
                 st.success("안전성 검사: " + safety_result["text"])
                 st.session_state.audio_processed = True
-
+                # --- 챗봇: 오디오 처리 후 메시지 ---
+                if chatbot_image_base64:
+                    st.markdown(
+                        f"""
+                        <div style="text-align: center; margin-top: 2rem; margin-bottom: 2rem;">
+                            <img src="data:image/png;base64,{chatbot_image_base64}" width="100" style="border-radius: 50%;">
+                            <p style="font-size: 1.1em; font-weight: bold; margin-top: 10px;">음성 인식이 완료되었어요! 당신의 꿈 이야기가 준비되었습니다.</p>
+                        </div>
+                        """,
+                        unsafe_allow_html=True
+                    )
         os.remove(audio_path)
         st.rerun()
 
@@ -203,6 +228,17 @@ with col_center: # 모든 UI 요소를 이 중앙 컬럼 안에 배치합니다.
             with st.spinner("꿈 내용을 분석하여 리포트를 생성하는 중... 🧠"):
                 report = _report_generator_service.generate_report(st.session_state.original_dream_text)
                 st.session_state.dream_report = report
+                # --- 챗봇: 리포트 생성 후 메시지 ---
+                if chatbot_image_base64:
+                    st.markdown(
+                        f"""
+                        <div style="text-align: center; margin-top: 2rem; margin-bottom: 2rem;">
+                            <img src="data:image/png;base64,{chatbot_image_base64}" width="100" style="border-radius: 50%;">
+                            <p style="font-size: 1.1em; font-weight: bold; margin-top: 10px;">분석 리포트가 완성되었습니다! 이제 이 꿈을 이미지로 시각화해 볼까요?</p>
+                        </div>
+                        """,
+                        unsafe_allow_html=True
+                    )
                 st.rerun()
         else:
             st.error("분석할 꿈 텍스트가 없습니다. 다시 시도해주세요.")
