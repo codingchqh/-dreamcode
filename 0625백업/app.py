@@ -44,7 +44,7 @@ logo_path = os.path.join(logo_dir, "보여dream로고.png")
 chatbot_image_path = os.path.join(logo_dir, "나비몽 챗봇.png") # 나비몽 챗봇 이미지 경로 추가
 
 logo_base64 = get_base64_image(logo_path)
-chatbot_image_base64 = get_base64_image(chatbot_image_path) # 나비봉 챗봇 이미지 로드
+chatbot_image_base64 = get_base64_image(chatbot_image_path) # 나비몽 챗봇 이미지 로드
 
 # --- UI 중앙 정렬을 위한 컬럼 설정 ---
 col_left, col_center, col_right = st.columns([1, 4, 1]) 
@@ -137,7 +137,7 @@ with col_center: # 모든 UI 요소를 이 중앙 컬럼 안에 배치합니다.
                 f"""
                 <div style="text-align: center; margin-bottom: 2rem;">
                     <img src="data:image/png;base64,{chatbot_image_base64}" width="150" style="border-radius: 50%;">
-                    <p style="font-size: 1.2em; font-weight: bold; margin-top: 10px;">안녕하세요! 당신의 악몽을 함께 탐험할 나비봉 챗봇입니다. 악몽을 녹음하거나 파일을 업로드해 주세요!</p>
+                    <p style="font-size: 1.2em; font-weight: bold; margin-top: 10px;">안녕하세요! 당신의 악몽을 함께 탐험할 나비몽 챗봇입니다. 악몽을 녹음하거나 파일을 업로드해 주세요!</p>
                 </div>
                 """,
                 unsafe_allow_html=True
