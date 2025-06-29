@@ -45,7 +45,7 @@ def get_base64_image(image_path):
     except Exception as e: st.error(f"로고 로드 오류: {e}"); return None
 
 # '보여dream로고.png'가 배경이 투명한 로고라면 더 좋습니다.
-logo_path = os.path.join("user_data/image", "보여dream로고.png") 
+logo_path = os.path.join("user_data/image", "보여dream로고 투명.png") 
 logo_base64 = get_base64_image(logo_path)
 
 col_left, col_center, col_right = st.columns([1, 4, 1]) 
