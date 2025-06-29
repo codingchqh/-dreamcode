@@ -44,15 +44,25 @@ def get_base64_image(image_path):
     except FileNotFoundError: return None
     except Exception as e: st.error(f"로고 로드 오류: {e}"); return None
 
-logo_path = os.path.join("user_data/image", "보여dream로고.png")
+# '보여dream로고.png'가 배경이 투명한 로고라면 더 좋습니다.
+logo_path = os.path.join("user_data/image", "보여dream로고.png") 
 logo_base64 = get_base64_image(logo_path)
 
 col_left, col_center, col_right = st.columns([1, 4, 1]) 
 with col_center:
+    # --- 수정된 로고 및 타이틀 표시 부분 ---
     if logo_base64:
-        st.markdown(f'<div style="text-align: center; margin-bottom: 20px;"><img src="data:image/png;base64,{logo_base64}" width="200"></div>', unsafe_allow_html=True)
+        st.markdown(
+            f"""
+            <div style="display: flex; align-items: center; justify-content: center; margin-bottom: 20px;">
+                <img src="data:image/png;base64,{logo_base64}" width="80" style="margin-right: 15px;"/>
+                <h1 style="margin: 0; white-space: nowrap; font-size: 3em;">보여dream 🌙</h1>
+            </div>
+            """, 
+            unsafe_allow_html=True
+        )
     else:
-        st.title("보여dream 🌙")
+        st.title("보여dream 🌙") # 로고 로드 실패 시 대체 타이틀
     st.write("악몽을 녹음하거나 파일을 업로드해 주세요.")
 
     # --- 5. 세션 상태 기본값 초기화 ---
@@ -88,10 +98,15 @@ with col_center:
         audio_path = None
         try:
             suffix = os.path.splitext(file_name)[1] if file_name else ".wav"
-            with tempfile.NamedTemporaryFile(delete=False, dir=temp_audio_dir, suffix=suffix) as temp_file:
-                temp_file.write(audio_bytes); audio_path = temp_file.name
+            # OpenAI Whisper API는 파일 확장자를 기반으로 오디오 형식을 추론하므로,
+            # 정확한 확장자를 전달하는 것이 중요합니다.
+            # 하지만 transcribe_from_bytes 메서드는 BytesIO 객체와 'name' 속성을 사용하여 파일 이름을 전달합니다.
+            # 따라서 tempfile을 사용하는 대신 transcribe_from_bytes를 직접 호출하도록 변경합니다.
+            
             with st.spinner("음성을 텍스트로 변환하고 안전성 검사 중..."):
-                transcribed_text = _stt_service.transcribe_audio(audio_path)
+                # transcribe_from_bytes 메서드를 직접 호출합니다.
+                transcribed_text = _stt_service.transcribe_from_bytes(audio_bytes, file_name=file_name) 
+                
                 st.session_state.original_dream_text = transcribed_text 
                 safety_result = _moderation_service.check_text_safety(transcribed_text)
                 if safety_result["flagged"]:
@@ -99,8 +114,10 @@ with col_center:
                 else:
                     st.session_state.dream_text = transcribed_text; st.success("안전성 검사: " + safety_result["text"])
                 st.session_state.audio_processed = True
-        finally:
-            if audio_path and os.path.exists(audio_path): os.remove(audio_path)
+        except Exception as e: # 여기서 발생하는 오류도 잡아서 사용자에게 보여줍니다.
+            st.error(f"음성 변환 및 안전성 검사 중 오류 발생: {e}")
+            st.session_state.audio_processed = False # 오류 발생 시 다시 시도할 수 있도록 상태 초기화
+            st.session_state.dream_text = ""
         st.rerun()
 
     # --- 9. 2단계: 전사된 텍스트 출력 및 분석 시작 버튼 ---
@@ -146,23 +163,27 @@ with col_center:
                     prompt = _dream_analyzer_service.create_nightmare_prompt(st.session_state.original_dream_text)
                     st.session_state.nightmare_prompt = prompt
                     st.session_state.nightmare_image_url = _image_generator_service.generate_image_from_prompt(prompt)
+                    # 이미지 생성 후 rerun을 호출하여 이미지가 바로 보이도록 합니다.
+                    st.rerun() 
         with col2:
             if st.button("✨ 재구성된 꿈 이미지 보기"):
                 with st.spinner("악몽을 긍정적인 꿈으로 재구성하는 중..."):
-                    # ===> 여기가 핵심 변경 사항입니다! <===
                     reconstructed_prompt, transformation_summary, keyword_mappings = \
                         _dream_analyzer_service.create_reconstructed_prompt_and_analysis(
                             st.session_state.original_dream_text, 
                             st.session_state.dream_report
                         )
-                    # =======================================
                     st.session_state.reconstructed_prompt = reconstructed_prompt
                     st.session_state.transformation_summary = transformation_summary
                     st.session_state.keyword_mappings = keyword_mappings
                     st.session_state.reconstructed_image_url = _image_generator_service.generate_image_from_prompt(reconstructed_prompt)
+                    # 이미지 생성 후 rerun을 호출하여 이미지가 바로 보이도록 합니다.
+                    st.rerun()
 
     # --- 12. 5단계: 생성된 이미지 표시 ---
-    if st.session_state.nightmare_image_url or st.session_state.reconstructed_image_url:
+    # `st.session_state.nightmare_image_url` 또는 `st.session_state.reconstructed_image_url`이 비어있지 않거나 HTTP로 시작하는 경우에만 표시
+    if (st.session_state.nightmare_image_url and st.session_state.nightmare_image_url.startswith("http")) or \
+       (st.session_state.reconstructed_image_url and st.session_state.reconstructed_image_url.startswith("http")):
         st.markdown("---"); st.subheader("생성된 꿈 이미지")
         img_col1, img_col2 = st.columns(2)
         with img_col1:
