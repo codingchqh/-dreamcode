@@ -90,7 +90,7 @@ def main():
 
     # --- UI ---
     # 로고와 타이틀 표시 (수정된 버전)
-    logo_path = os.path.join("user_data/image", "보여dream로고 투명.png")
+    logo_path = os.path.join("user_data/image", "보여dream로고 x.png")
     try:
         with open(logo_path, "rb") as image_file: logo_base64 = base64.b64encode(image_file.read()).decode()
         st.markdown(f'<div style="display: flex; align-items: center; justify-content: center; margin-bottom: 1rem;"><img src="data:image/png;base64,{logo_base64}" width="80" style="margin-right: 20px;"/><h1 style="margin: 0; white-space: nowrap;">보여dream 🌙</h1></div>', unsafe_allow_html=True)
@@ -115,18 +115,14 @@ def main():
             uploaded_file = st.file_uploader("파일 업로드", type=['mp3', 'm4a', 'wav', 'ogg'], label_visibility="collapsed")
             if uploaded_file:
                 with st.spinner("파일 변환 중..."):
-                    # 파일 타입에서 확장자를 추출하여 transcribe_from_bytes에 전달
-                    file_type = uploaded_file.type.split('/')[-1] if uploaded_file.type else "wav"
-                    file_name_with_ext = f"uploaded_audio.{file_type}"
-                    st.session_state.dream_text = _stt.transcribe_from_bytes(uploaded_file.getvalue(), file_name=file_name_with_ext)
+                    st.session_state.dream_text = _stt.transcribe_from_bytes(uploaded_file.getvalue())
                     st.session_state.analysis_started = False # 새 입력이므로 분석 상태 초기화
                     st.rerun()
         with col2:
             wav_audio_data = st_audiorec()
             if wav_audio_data:
                 with st.spinner("녹음 변환 중..."):
-                    # st_audiorec은 기본적으로 WAV 데이터를 반환하므로 .wav 확장자를 사용
-                    st.session_state.dream_text = _stt.transcribe_from_bytes(wav_audio_data, file_name="recorded_audio.wav")
+                    st.session_state.dream_text = _stt.transcribe_from_bytes(wav_audio_data)
                     st.session_state.analysis_started = False # 새 입력이므로 분석 상태 초기화
                     st.rerun()
 
@@ -162,16 +158,12 @@ def main():
         img_col1, img_col2 = st.columns(2)
         with img_col1:
             st.markdown("###### 악몽의 시각화 (Before)")
-            if st.session_state.nightmare_image_url and st.session_state.nightmare_image_url.startswith("http"):
-                st.image(st.session_state.nightmare_image_url, caption="악몽 시각화")
-            elif st.session_state.nightmare_image_url:
-                st.error(f"이미지 생성 실패: {st.session_state.nightmare_image_url}")
+            if st.session_state.nightmare_image_url.startswith("http"): st.image(st.session_state.nightmare_image_url, caption="악몽 시각화")
+            elif st.session_state.nightmare_image_url: st.error(f"이미지 생성 실패: {st.session_state.nightmare_image_url}")
         with img_col2:
             st.markdown("###### 재구성된 꿈 (After)")
-            if st.session_state.reconstructed_image_url and st.session_state.reconstructed_image_url.startswith("http"):
-                st.image(st.session_state.reconstructed_image_url, caption="재구성된 꿈")
-            elif st.session_state.reconstructed_image_url:
-                st.error(f"이미지 생성 실패: {st.session_state.reconstructed_image_url}")
+            if st.session_state.reconstructed_image_url.startswith("http"): st.image(st.session_state.reconstructed_image_url, caption="재구성된 꿈")
+            elif st.session_state.reconstructed_image_url: st.error(f"이미지 생성 실패: {st.session_state.reconstructed_image_url}")
 
 if __name__ == "__main__":
     main()
