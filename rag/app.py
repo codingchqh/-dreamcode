@@ -297,12 +297,12 @@ with col_center: # 모든 UI 요소를 이 중앙 컬럼 안에 배치합니다.
                 with st.spinner("악몽을 긍정적인 꿈으로 재구성하는 중... 🌈"):
                     reconstructed_prompt, transformation_summary, keyword_mappings = \
                         _dream_analyzer_service.create_reconstructed_prompt(
-                            st.session_state.original_dream_text, 
+                            st.session_state.original_dream_text,
                             st.session_state.dream_report
                         )
                     st.session_state.reconstructed_prompt = reconstructed_prompt
                     st.session_state.transformation_summary = transformation_summary
-                    st.session_state.keyword_mappings = keyword_mappings           
+                    st.session_state.keyword_mappings = keyword_mappings
 
                     reconstructed_image_url = _image_generator_service.generate_image_from_prompt(reconstructed_prompt)
                     st.session_state.reconstructed_image_url = reconstructed_image_url
