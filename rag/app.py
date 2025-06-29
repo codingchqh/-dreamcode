@@ -1,29 +1,20 @@
 import streamlit as st
 import os
 from PIL import Image
-# 우리가 만든 모든 서비스들을 가져옵니다.
 from services import stt_service, dream_analyzer_service, image_generator_service, moderation_service, report_generator_service
-from st_audiorec import st_audiorec # st_audiorec 임포트
+from st_audiorec import st_audiorec
 import base64
 import tempfile
 
-# --- RAG 기능을 위해 추가해야 할 임포트 ---
 from langchain_openai import OpenAIEmbeddings
 from langchain_community.vectorstores import FAISS
-# ===============================================
 
-# --- 1. 페이지 설정 ---
 st.set_page_config(page_title="보여dream | 당신의 악몽을 재구성합니다", page_icon="🌙", layout="wide")
 
-# --- 2. API 키 로드 및 서비스 초기화 ---
-# @st.cache_resource 데코레이터를 사용하여 서비스 객체들을 캐싱합니다.
-# 이렇게 하면 Streamlit이 리런될 때마다 서비스 객체들을 다시 생성하지 않아도 됩니다.
 @st.cache_resource
 def initialize_services(api_key: str):
     try:
         embeddings = OpenAIEmbeddings(api_key=api_key)
-        # allow_dangerous_deserialization=True는 보안에 주의해야 합니다.
-        # 신뢰할 수 있는 소스에서 생성된 FAISS 인덱스만 로드해야 합니다.
         vector_store = FAISS.load_local("faiss_index", embeddings, allow_dangerous_deserialization=True)
         retriever = vector_store.as_retriever()
         
@@ -45,11 +36,8 @@ if not openai_api_key:
     st.error("OPENAI_API_KEY 환경 변수가 설정되지 않았습니다.")
     st.stop()
 
-# 서비스 초기화 (캐시된 객체 사용)
 _stt_service, _dream_analyzer_service, _image_generator_service, _moderation_service, _report_generator_service = initialize_services(openai_api_key)
 
-
-# --- 3. 로고 이미지 로딩 및 표시 ---
 def get_base64_image(image_path):
     try:
         with open(image_path, "rb") as img_file:
@@ -60,9 +48,13 @@ def get_base64_image(image_path):
 logo_path = os.path.join("user_data/image", "보여dream로고.png") 
 logo_base64 = get_base64_image(logo_path)
 
+# --- 메인 컨테이너 시작 ---
+# 이 전체 블록이 한 번만 그려지도록 제어하는 것이 목적입니다.
+# 하지만 Streamlit의 기본 동작은 매 리런마다 전체 스크립트를 실행합니다.
+# 대신, 특정 UI 요소가 특정 상태에서만 나타나도록 제어합니다.
 col_left, col_center, col_right = st.columns([1, 4, 1]) 
 with col_center:
-    # --- 수정된 로고 및 타이틀 표시 부분 ---
+    # 로고와 타이틀은 항상 한 번만 상단에 표시됩니다.
     if logo_base64:
         st.markdown(
             f"""
@@ -74,17 +66,16 @@ with col_center:
             unsafe_allow_html=True
         )
     else:
-        st.title("보여dream 🌙") # 로고 로드 실패 시 대체 타이틀
+        st.title("보여dream 🌙") 
     st.write("악몽을 녹음하거나 파일을 업로드해 주세요.")
 
-    # --- 5. 세션 상태 기본값 초기화 ---
+    # --- 세션 상태 기본값 초기화 ---
     session_defaults = {
-        # "dream_text_input": "", # 텍스트 직접 입력을 위한 변수 제거
         "dream_text": "", 
         "original_dream_text": "", 
         "analysis_started": False,
         "audio_processed": False, # 오디오 처리 완료 플래그 (STT 실행 여부)
-        "audio_data_to_process": None, # 처리할 오디오 바이트 데이터
+        "audio_data_to_process": None, # 처리할 오디오 바이트 데이터 (None이면 처리할 데이터 없음)
         "audio_file_name": None, # 처리할 오디오 파일 이름
         "derisked_text": "", 
         "dream_report": None,
@@ -99,17 +90,17 @@ with col_center:
         if key not in st.session_state:
             st.session_state[key] = value
 
-    # --- 6. 세션 상태 초기화 함수 (모든 분석 관련 상태 초기화) ---
-    # 사용자가 새로운 입력 방식을 선택하거나, 새로운 입력을 시작할 때 호출됩니다.
+    # --- 세션 상태 초기화 함수 (모든 분석 관련 상태 초기화) ---
     def initialize_analysis_state():
         print("DEBUG: Initializing analysis state...")
-        # 오디오 관련 상태도 같이 초기화
+        # 기존 오디오 데이터 관련 세션 상태도 초기화
+        st.session_state.audio_data_to_process = None
+        st.session_state.audio_file_name = None
+        st.session_state.audio_processed = False
+        
         st.session_state.original_dream_text = ""
         st.session_state.dream_text = ""
         st.session_state.analysis_started = False
-        st.session_state.audio_processed = False
-        st.session_state.audio_data_to_process = None # 핵심 수정: 처리할 오디오 데이터 초기화
-        st.session_state.audio_file_name = None
         st.session_state.derisked_text = ""
         st.session_state.dream_report = None
         st.session_state.nightmare_prompt = ""
@@ -118,30 +109,28 @@ with col_center:
         st.session_state.keyword_mappings = []
         st.session_state.nightmare_image_url = ""
         st.session_state.reconstructed_image_url = ""
-
-    # --- 7. UI 구성: 오디오 입력 부분 ---
-    # 텍스트 직접 입력 탭 제거, 오디오 입력 탭만 남김
-    tab_record, tab_upload = st.tabs(["🎤 실시간 녹음하기", "📁 오디오 파일 업로드"])
     
-    # 오디오 입력 처리 탭들
-    audio_bytes_from_input = None # 이 변수는 현재 프레임에서 받은 오디오 데이터를 임시로 저장
-    
-    with tab_record:
-        # key 인자 제거 (st_audiorec()는 key를 지원하지 않을 수 있음)
-        wav_audio_data = st_audiorec() 
-        if wav_audio_data: 
-            initialize_analysis_state() # 새로운 오디오 입력이므로 분석 상태 초기화
-            st.session_state.audio_data_to_process = wav_audio_data # 핵심: 오디오 데이터를 세션 상태에 저장
-            st.session_state.audio_file_name = "recorded_dream.wav"
-            st.rerun() # 오디오 데이터가 세션에 저장되었으니 리런하여 다음 로직으로 이동
+    # --- UI 구성: 오디오 입력 부분 (이 부분만 조건부로 나타나도록 조정) ---
+    # `original_dream_text`가 비어있을 때만 오디오 입력 UI를 표시합니다.
+    # 즉, 꿈 내용이 아직 입력되지 않았을 때만 업로드/녹음 버튼이 보입니다.
+    if not st.session_state.original_dream_text:
+        tab_record, tab_upload = st.tabs(["🎤 실시간 녹음하기", "📁 오디오 파일 업로드"])
+        
+        with tab_record:
+            wav_audio_data = st_audiorec() # key 인자 제거
+            if wav_audio_data: 
+                initialize_analysis_state() # 새로운 오디오 입력이므로 분석 상태 초기화
+                st.session_state.audio_data_to_process = wav_audio_data 
+                st.session_state.audio_file_name = "recorded_dream.wav"
+                st.rerun() # 오디오 데이터가 세션에 저장되었으니 리런하여 다음 로직으로 이동
 
-    with tab_upload:
-        uploaded_file = st.file_uploader("악몽 오디오 파일 선택", type=["mp3", "wav", "m4a", "ogg"], key="file_uploader_widget") # key는 Streamlit 내장 위젯에 유효
-        if uploaded_file: 
-            initialize_analysis_state() # 새로운 오디오 입력이므로 분석 상태 초기화
-            st.session_state.audio_data_to_process = uploaded_file.getvalue() # 핵심: 오디오 데이터를 세션 상태에 저장
-            st.session_state.audio_file_name = uploaded_file.name
-            st.rerun() # 오디오 데이터가 세션에 저장되었으니 리런하여 다음 로직으로 이동
+        with tab_upload:
+            uploaded_file = st.file_uploader("악몽 오디오 파일 선택", type=["mp3", "wav", "m4a", "ogg"], key="file_uploader_widget") 
+            if uploaded_file: 
+                initialize_analysis_state() # 새로운 오디오 입력이므로 분석 상태 초기화
+                st.session_state.audio_data_to_process = uploaded_file.getvalue() 
+                st.session_state.audio_file_name = uploaded_file.name
+                st.rerun() # 오디오 데이터가 세션에 저장되었으니 리런하여 다음 로직으로 이동
 
     # --- 8. 1단계: 오디오 → 텍스트 전사 + 안전성 검사 (audio_data_to_process가 있을 경우에만 실행) ---
     # `audio_data_to_process`가 있고 아직 처리되지 않았다면 STT 실행
@@ -175,23 +164,21 @@ with col_center:
         st.rerun() # STT 처리 완료 (또는 실패) 후 UI 업데이트를 위해 리런
 
     # --- 9. 2단계: 전사된 텍스트 출력 및 분석 시작 버튼 ---
+    # original_dream_text가 채워져 있으면 (음성 변환이든 직접 입력이든)
     if st.session_state.original_dream_text: 
-        st.markdown("---"); st.subheader("📝 나의 악몽 이야기") # 텍스트 변환 결과 대신 더 일반적인 제목으로 변경
-        st.info(st.session_state.original_dream_text) # 원본 텍스트 표시
+        st.markdown("---"); st.subheader("📝 나의 악몽 이야기") 
+        st.info(st.session_state.original_dream_text) 
         
-        # 실제 분석에 사용될 텍스트가 안전성 검사를 통과했을 때만 버튼 활성화
-        # dream_text 세션 상태가 비어있지 않아야 (안전성 검사 통과) 버튼이 활성화됩니다.
         if st.session_state.dream_text and not st.session_state.analysis_started: 
             if st.button("✅ 이 내용으로 꿈 분석하기", type="primary", use_container_width=True):
                 st.session_state.analysis_started = True; 
-                st.rerun() # 분석 시작 버튼 클릭 시 리런하여 다음 단계로 진행
-        elif not st.session_state.dream_text: # dream_text가 비어있으면 (안전성 검사 실패 시) 경고
+                st.rerun() 
+        elif not st.session_state.dream_text: 
              st.warning("입력된 꿈 내용이 안전성 검사를 통과하지 못했습니다. 내용을 수정하거나 다시 시도해주세요.")
     
     # --- 10. 3단계: 리포트 생성 ---
-    # analysis_started가 True이고 dream_report가 아직 생성되지 않았을 때만 실행
     if st.session_state.analysis_started and st.session_state.dream_report is None:
-        if st.session_state.original_dream_text: # original_dream_text를 사용하여 리포트 생성
+        if st.session_state.original_dream_text: 
             with st.spinner("RAG가 지식 베이스를 참조하여 리포트를 생성하는 중... 🧠"):
                 print("DEBUG: Starting report generation...")
                 report = _report_generator_service.generate_report_with_rag(st.session_state.original_dream_text)
@@ -203,7 +190,7 @@ with col_center:
             print("ERROR: No dream text to analyze for report.")
     
     # --- 11. 4단계: 감정 분석 리포트 출력 및 이미지 생성 버튼 ---
-    if st.session_state.dream_report: # dream_report가 있어야 이 섹션이 표시됩니다.
+    if st.session_state.dream_report: 
         report = st.session_state.dream_report
         st.markdown("---"); st.subheader("📊 감정 분석 리포트")
         emotions = report.get("emotions", [])
@@ -223,7 +210,6 @@ with col_center:
             if st.button("😱 악몽 이미지 그대로 보기"):
                 with st.spinner("악몽을 시각화하는 중..."):
                     print("DEBUG: Generating nightmare prompt...")
-                    # create_nightmare_prompt에 dream_report 인자 추가
                     prompt = _dream_analyzer_service.create_nightmare_prompt(
                         st.session_state.original_dream_text,
                         st.session_state.dream_report 
