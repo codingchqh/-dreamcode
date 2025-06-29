@@ -130,11 +130,11 @@ def main():
     with tab3:
         st.write("아래 'START' 버튼을 누르고 마이크에 꿈 이야기를 녹음하세요. 녹음을 멈추려면 'STOP'을 누르세요.")
         webrtc_ctx = webrtc_streamer(
-            key="audio-recorder",
-            mode=WebRtcMode.SEND_ONLY,
-            audio_processor_factory=AudioFrameHandler,
-            media_stream_constraints={"video": False, "audio": True},
-        )
+        key="audio-recorder",
+        mode=WebRtcMode.SENDONLY, # <--- 이렇게 수정해주세요.
+        audio_processor_factory=AudioFrameHandler,
+        media_stream_constraints={"video": False, "audio": True},
+)
         if st.button("녹음 내용으로 분석 시작", use_container_width=True):
             if webrtc_ctx.audio_processor:
                 audio_frames = webrtc_ctx.audio_processor.audio_frames
