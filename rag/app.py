@@ -20,7 +20,9 @@ st.set_page_config(page_title="보여DREAM", page_icon="🌙", layout="wide")
 def initialize_services():
     """ API 키 확인, 모든 서비스 및 모델 객체들을 생성하고 캐싱합니다. """
     api_key = os.getenv("OPENAI_API_KEY")
-    if not api_key: st.error("OPENAI_API_KEY 환경변수가 설정되지 않았습니다."); st.stop()
+    if not api_key:
+        st.error("OPENAI_API_KEY 환경변수가 설정되지 않았습니다.")
+        st.stop()
     try:
         embeddings = OpenAIEmbeddings()
         vector_store = FAISS.load_local("faiss_index", embeddings, allow_dangerous_deserialization=True)
@@ -31,7 +33,9 @@ def initialize_services():
         stt_service = STTService(api_key=api_key)
         return report_generator, dream_analyzer, image_generator, stt_service
     except Exception as e:
-        st.error(f"서비스 초기화 중 오류: {e}"); st.info("faiss_index 폴더를 확인해주세요."); st.stop()
+        st.error(f"서비스 초기화 중 오류: {e}")
+        st.info("faiss_index 폴더를 확인해주세요.")
+        st.stop()
 
 # --- 2. 실시간 오디오 녹음 처리 클래스 ---
 class AudioFrameHandler(AudioProcessorBase):
@@ -44,7 +48,6 @@ class AudioFrameHandler(AudioProcessorBase):
 
 # --- 3. 분석 및 결과 표시를 위한 공통 함수 ---
 def run_analysis_pipeline(dream_text):
-    """ 입력받은 텍스트로 전체 분석/생성 파이프라인을 실행하고, 결과를 st.session_state에 저장합니다. """
     if not dream_text or "오류" in dream_text or "찾을 수 없습니다" in dream_text:
         st.error(dream_text or "분석할 텍스트가 없습니다."); return
     st.session_state.analysis_results = None; st.session_state.show_before_image = False; st.session_state.show_after_image = False
@@ -59,7 +62,6 @@ def run_analysis_pipeline(dream_text):
     st.session_state.analysis_results = { "dream_report": dream_report, "nightmare_image_url": nightmare_image_url, "reconstructed_image_url": reconstructed_image_url, "summary": summary, "mappings": mappings }
 
 def display_results():
-    """ st.session_state에 저장된 분석 결과를 화면에 표시하고, 이미지 버튼을 제공합니다. """
     results = st.session_state.analysis_results; dream_report = results["dream_report"]
     st.subheader("📝 AI 심층 분석 리포트")
     with st.container(border=True):
