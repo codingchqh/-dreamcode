@@ -3,8 +3,10 @@ import streamlit as st
 import base64
 from langchain_openai import OpenAIEmbeddings
 from langchain_community.vectorstores import FAISS
+from langchain_core.output_parsers import StrOutputParser
 import concurrent.futures
 from streamlit_webrtc import webrtc_streamer, WebRtcMode, AudioProcessorBase
+
 import numpy as np
 import io
 import tempfile
