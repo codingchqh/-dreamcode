@@ -5,6 +5,7 @@ from langchain_openai import OpenAIEmbeddings
 from langchain_community.vectorstores import FAISS
 from langchain_core.output_parsers import StrOutputParser
 import concurrent.futures
+from st_audiorec import st_audiorec
 from streamlit_webrtc import webrtc_streamer, WebRtcMode, AudioProcessorBase
 
 import numpy as np
