@@ -32,7 +32,7 @@ except Exception as e:
 
 _stt_service = stt_service.STTService(api_key=openai_api_key)
 _dream_analyzer_service = dream_analyzer_service.DreamAnalyzerService(api_key=openai_api_key)
-_image_generator_service = image_generator_service.ImageGeneratorService(api_key=openai_api_key) # <-- 이 부분의 서비스가 중요합니다.
+_image_generator_service = image_generator_service.ImageGeneratorService(api_key=openai_api_key)
 _moderation_service = moderation_service.ModerationService(api_key=openai_api_key)
 _report_generator_service = report_generator_service.ReportGeneratorService(api_key=openai_api_key, retriever=retriever)
 
@@ -74,12 +74,12 @@ with col_center:
     }
     for key, value in session_defaults.items():
         if key not in st.session_state:
-            st.session_state[key] = value
+            st.session_state[:key] = value
 
     # --- 6. 세션 상태 초기화 함수 ---
     def initialize_session_state():
         for key, value in session_defaults.items():
-            st.session_state[key] = value
+            st.session_state[:key] = value
 
     # --- 7. UI 구성: 오디오 입력 부분 ---
     tab1, tab2 = st.tabs(["🎤 실시간 녹음하기", "📁 오디오 파일 업로드"])
@@ -155,10 +155,12 @@ with col_center:
         with col1:
             if st.button("😱 악몽 이미지 그대로 보기"):
                 with st.spinner("악몽을 시각화하는 중..."):
-                    # create_nightmare_prompt 함수가 원본 텍스트를 기반으로 프롬프트를 생성합니다.
-                    prompt = _dream_analyzer_service.create_nightmare_prompt(st.session_state.original_dream_text)
+                    # dream_report 인자를 추가하여 전달합니다.
+                    prompt = _dream_analyzer_service.create_nightmare_prompt(
+                        st.session_state.original_dream_text,
+                        st.session_state.dream_report
+                    )
                     st.session_state.nightmare_prompt = prompt
-                    # generate_image_from_prompt 함수가 이미지 URL을 반환해야 합니다.
                     st.session_state.nightmare_image_url = _image_generator_service.generate_image_from_prompt(prompt)
                     st.rerun() 
         with col2:
@@ -172,7 +174,6 @@ with col_center:
                     st.session_state.reconstructed_prompt = reconstructed_prompt
                     st.session_state.transformation_summary = transformation_summary
                     st.session_state.keyword_mappings = keyword_mappings
-                    # generate_image_from_prompt 함수가 이미지 URL을 반환해야 합니다.
                     st.session_state.reconstructed_image_url = _image_generator_service.generate_image_from_prompt(reconstructed_prompt)
                     st.rerun()
 
