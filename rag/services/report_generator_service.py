@@ -1,80 +1,97 @@
 # services/report_generator_service.py
 
-from langchain_core.prompts import PromptTemplate
+import json
+from typing import List, Dict, Any
+
+from langchain_core.prompts import ChatPromptTemplate
+from langchain_core.pydantic_v1 import BaseModel, Field
+from langchain_core.runnables import RunnablePassthrough
 from langchain_openai import ChatOpenAI
-from langchain_core.output_parsers import StrOutputParser
-import json # JSON 파싱을 위해 추가
+from langchain.output_parsers import PydanticOutputParser
+
+# --- Pydantic 모델 정의: LLM의 출력 형식을 강제하고 안정적으로 파싱하기 위함 ---
+class Emotion(BaseModel):
+    emotion: str = Field(description="감정의 명칭 (한국어)")
+    score: float = Field(description="감정의 강도 (0.0에서 1.0 사이)")
+
+class Report(BaseModel):
+    emotions: List[Emotion] = Field(description="주요 감정 목록")
+    keywords: List[str] = Field(description="꿈의 핵심 키워드 목록 (한국어)")
+    analysis_summary: str = Field(description="전문 지식을 바탕으로 한 심층 분석 요약 (2-4 문장, 한국어)")
+
 
 class ReportGeneratorService:
     """
-    꿈 텍스트를 분석하여 감정, 키워드, 요약을 포함하는 리포트를 생성하는 클래스입니다.
-    LangChain과 OpenAI LLM을 사용합니다.
+    [RAG 통합 버전] 꿈 텍스트와 전문 지식을 함께 분석하여
+    감정, 키워드, 심층 분석 요약을 포함하는 리포트를 생성하는 클래스입니다.
     """
-    def __init__(self, api_key: str):
+    def __init__(self, api_key: str, retriever: Any):
         """
         ReportGeneratorService를 초기화합니다.
         :param api_key: OpenAI API 키
+        :param retriever: 미리 학습된 FAISS retriever 객체
         """
         self.llm = ChatOpenAI(model="gpt-4o", api_key=api_key, temperature=0.3)
+        self.retriever = retriever
+        # Pydantic 모델을 기반으로 출력 파서를 생성합니다.
+        self.parser = PydanticOutputParser(pydantic_object=Report)
 
-    def generate_report(self, dream_text: str) -> dict:
+    def _format_docs(self, docs: List[Dict]) -> str:
+        """검색된 문서들을 하나의 문자열로 결합하는 내부 함수"""
+        return "\n\n".join(doc.page_content for doc in docs)
+
+    def generate_report_with_rag(self, dream_text: str) -> dict:
         """
-        주어진 꿈 텍스트에 대한 감정 분석 리포트를 JSON 형식으로 생성합니다.
+        주어진 꿈 텍스트에 대해 RAG를 활용한 심층 분석 리포트를 생성합니다.
         :param dream_text: 분석할 꿈의 텍스트
-        :return: 감정, 키워드, 분석 요약을 포함하는 딕셔너리
+        :return: 감정, 키워드, 심층 분석 요약을 포함하는 딕셔너리
         """
-        # 시스템 프롬프트: LLM에게 리포트 생성 지시 및 JSON 형식 예시 제공
-        # 중요: 예시 JSON 내의 모든 중괄호는 {{ }}로 이스케이프해야 합니다!
-        # ===> 여기에 'Output in Korean.' 지시와 한국어 예시를 추가합니다. <===
-        system_prompt = """
-        You are an AI dream analyst. Analyze the user's dream text to identify core emotions and key elements.
-        Provide:
-        1. A list of dominant emotions with a score (0-1, 0 being low, 1 being high). Output emotion names in Korean.
-        2. A list of key keywords (nouns, verbs, adjectives relevant to the dream's core). Output keywords in Korean.
-        3. A brief (2-3 sentences) overall analysis summary of the dream's emotional tone and potential themes. Output analysis summary in Korean.
-        Respond strictly in JSON format. Do not include any other text or markdown outside the JSON block.
+        # RAG 기능을 포함한 새로운 프롬프트 템플릿
+        rag_prompt_template = """
+        You are an AI dream analyst who is an expert in IRT and dream symbolism.
+        Your task is to analyze the user's dream by referring to the provided [Professional Knowledge].
         
-        Example JSON (Output in Korean):
-        {{
-          "emotions": [
-            {{"emotion": "두려움", "score": 0.8}},
-            {{"emotion": "불안", "score": 0.6}},
-            {{"emotion": "무기력", "score": 0.9}}
-          ],
-          "keywords": ["어두운 숲", "추격", "길 잃음", "압도감"],
-          "analysis_summary": "꿈은 압도적인 환경 속에서 추격당하고 길을 잃는 것과 같은 강한 두려움과 불안감을 나타냅니다. 이는 무기력함과 좌절감을 반영하며, 현실에서의 어려움을 상징할 수 있습니다."
-        }}
+        Based on BOTH the [User's Dream Text] and the [Professional Knowledge], generate a structured report.
+        The 'analysis_summary' MUST be based on insights from the [Professional Knowledge].
+        
+        All parts of the report (emotions, keywords, summary) MUST be in Korean.
+
+        {format_instructions}
+
+        [Professional Knowledge]
+        {context}
+
+        [User's Dream Text]
+        {dream_text}
         """
-        # 사용자 프롬프트 템플릿
-        user_prompt_template = PromptTemplate.from_template(
-            "User's dream description (Korean): {dream_text}"
+
+        prompt = ChatPromptTemplate.from_template(
+            rag_prompt_template,
+            partial_variables={"format_instructions": self.parser.get_format_instructions()}
         )
-        # 시스템 프롬프트와 사용자 프롬프트를 결합하여 최종 PromptTemplate 생성
-        chain = PromptTemplate.from_template(system_prompt + "\n" + user_prompt_template.template) | self.llm | StrOutputParser()
+
+        # LCEL을 사용한 RAG 체인 구성
+        chain = (
+            {
+                "context": self.retriever | self._format_docs, # retriever로 context 검색 및 포맷팅
+                "dream_text": RunnablePassthrough() # 사용자 입력을 그대로 전달
+            }
+            | prompt
+            | self.llm
+            | self.parser
+        )
 
         try:
-            raw_response = chain.invoke({"dream_text": dream_text}) # dream_text 변수 전달
-            
-            # LLM 응답에서 JSON 부분만 안전하게 추출
-            if raw_response.strip().startswith("```json") and raw_response.strip().endswith("```"):
-                json_str = raw_response.strip()[7:-3].strip()
-            else:
-                json_str = raw_response.strip()
-
-            # JSON 문자열을 파이썬 딕셔너리로 로드
-            report = json.loads(json_str)
-            return report
-        except json.JSONDecodeError as e:
-            print(f"Error parsing JSON from LLM response: {e}\nRaw response: {raw_response}")
-            return {
-                "emotions": [{"emotion": "파싱_오류", "score": 1.0}], # 오류 시에도 한글로
-                "keywords": ["JSON_오류"], # 오류 시에도 한글로
-                "analysis_summary": f"리포트 JSON 형식 오류: {e}. 원본 응답: {raw_response[:min(len(raw_response), 200)]}..."
-            }
+            # RAG 체인을 실행하여 리포트(Pydantic 객체)를 생성
+            report_object = chain.invoke(dream_text)
+            # Pydantic 객체를 딕셔너리로 변환하여 반환
+            return report_object.dict()
         except Exception as e:
-            print(f"Error generating report: {e}")
+            print(f"Error generating report with RAG: {e}")
+            # RAG 실패 시, 기존 방식(LLM 단독)으로 보고서 생성 시도 (선택적)
+            # 또는 간단한 오류 리포트 반환
             return {
-                "emotions": [{"emotion": "처리_오류", "score": 1.0}], # 오류 시에도 한글로
-                "keywords": ["리포트_오류"], # 오류 시에도 한글로
-                "analysis_summary": f"리포트 생성 중 알 수 없는 오류가 발생했습니다: {e}"
+                "emotions": [{"emotion": "오류", "score": 1.0}],
+                "keywords": ["RAG_리포트_생성_오류"],
+                "analysis_summary": f"RAG 리포트 생성 중 오류가 발생했습니다: {e}"
             }
