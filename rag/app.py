@@ -1,6 +1,7 @@
 import streamlit as st
 import os
 from PIL import Image
+# 우리가 만든 모든 서비스들을 가져옵니다.
 from services import stt_service, dream_analyzer_service, image_generator_service, moderation_service, report_generator_service
 from st_audiorec import st_audiorec
 import base64
@@ -12,11 +13,7 @@ from langchain_community.vectorstores import FAISS
 # ===============================================
 
 # --- 1. 페이지 설정 ---
-st.set_page_config(
-    page_title="보여dream | 당신의 악몽을 재구성합니다",
-    page_icon="🌙",
-    layout="wide"
-)
+st.set_page_config(page_title="보여dream | 당신의 악몽을 재구성합니다", page_icon="🌙", layout="wide")
 
 # --- 2. API 키 로드 및 서비스 초기화 ---
 openai_api_key = os.getenv("OPENAI_API_KEY", "")
@@ -24,10 +21,8 @@ if not openai_api_key:
     st.error("OPENAI_API_KEY 환경 변수가 설정되지 않았습니다.")
     st.stop()
 
-# ===> 변경점 1: RAG 검색기(Retriever)를 준비하고 ReportGeneratorService에 전달 <===
 try:
     embeddings = OpenAIEmbeddings(api_key=openai_api_key)
-    # faiss_index 폴더가 이 app.py 파일과 같은 위치에 있거나, 하위 폴더에 있다면 경로를 맞게 수정해야 할 수 있습니다.
     vector_store = FAISS.load_local("faiss_index", embeddings, allow_dangerous_deserialization=True)
     retriever = vector_store.as_retriever()
 except Exception as e:
@@ -35,27 +30,23 @@ except Exception as e:
     st.info("프로젝트 루트 폴더에서 'python core/indexing_service.py'를 먼저 실행하여 'faiss_index' 폴더를 생성했는지 확인해주세요.")
     st.stop()
 
-# 이제 retriever와 함께 서비스들을 초기화합니다.
 _stt_service = stt_service.STTService(api_key=openai_api_key)
 _dream_analyzer_service = dream_analyzer_service.DreamAnalyzerService(api_key=openai_api_key)
 _image_generator_service = image_generator_service.ImageGeneratorService(api_key=openai_api_key)
 _moderation_service = moderation_service.ModerationService(api_key=openai_api_key)
-# ReportGeneratorService를 생성할 때 retriever를 함께 전달합니다.
 _report_generator_service = report_generator_service.ReportGeneratorService(api_key=openai_api_key, retriever=retriever)
-# =================================================================================
 
 # --- 3. 로고 이미지 로딩 및 표시 ---
 def get_base64_image(image_path):
     try:
         with open(image_path, "rb") as img_file:
             return base64.b64encode(img_file.read()).decode()
-    except FileNotFoundError:
-        return None
+    except FileNotFoundError: return None
+    except Exception as e: st.error(f"로고 로드 오류: {e}"); return None
 
 logo_path = os.path.join("user_data/image", "보여dream로고.png")
 logo_base64 = get_base64_image(logo_path)
 
-# --- UI 중앙 정렬을 위한 컬럼 설정 ---
 col_left, col_center, col_right = st.columns([1, 4, 1]) 
 with col_center:
     if logo_base64:
@@ -126,7 +117,6 @@ with col_center:
     if st.session_state.analysis_started and st.session_state.dream_report is None:
         if st.session_state.original_dream_text:
             with st.spinner("RAG가 지식 베이스를 참조하여 리포트를 생성하는 중... 🧠"):
-                # ===> 변경점 2: 기존 generate_report 대신 generate_report_with_rag 함수 호출 <===
                 report = _report_generator_service.generate_report_with_rag(st.session_state.original_dream_text)
                 st.session_state.dream_report = report
                 st.rerun()
@@ -159,9 +149,17 @@ with col_center:
         with col2:
             if st.button("✨ 재구성된 꿈 이미지 보기"):
                 with st.spinner("악몽을 긍정적인 꿈으로 재구성하는 중..."):
-                    prompt, summary, mappings = _dream_analyzer_service.create_reconstructed_prompt(st.session_state.original_dream_text, report)
-                    st.session_state.reconstructed_prompt, st.session_state.transformation_summary, st.session_state.keyword_mappings = prompt, summary, mappings
-                    st.session_state.reconstructed_image_url = _image_generator_service.generate_image_from_prompt(prompt)
+                    # ===> 여기가 핵심 변경 사항입니다! <===
+                    reconstructed_prompt, transformation_summary, keyword_mappings = \
+                        _dream_analyzer_service.create_reconstructed_prompt_and_analysis(
+                            st.session_state.original_dream_text, 
+                            st.session_state.dream_report
+                        )
+                    # =======================================
+                    st.session_state.reconstructed_prompt = reconstructed_prompt
+                    st.session_state.transformation_summary = transformation_summary
+                    st.session_state.keyword_mappings = keyword_mappings
+                    st.session_state.reconstructed_image_url = _image_generator_service.generate_image_from_prompt(reconstructed_prompt)
 
     # --- 12. 5단계: 생성된 이미지 표시 ---
     if st.session_state.nightmare_image_url or st.session_state.reconstructed_image_url:
