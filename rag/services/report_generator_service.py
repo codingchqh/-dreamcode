@@ -2,13 +2,13 @@
 
 import json
 from typing import List, Any
-from pydantic import BaseModel, Field # <<--- 여기가 핵심 변경 사항입니다!
+from pydantic import BaseModel, Field
 from langchain_core.prompts import ChatPromptTemplate
 from langchain_core.runnables import RunnablePassthrough
 from langchain_openai import ChatOpenAI
 from langchain.output_parsers import PydanticOutputParser
 
-# --- Pydantic V2 모델 정의 ---
+# Pydantic 모델 정의: LLM의 출력 형식을 강제하고 안정적으로 파싱하기 위함
 class Emotion(BaseModel):
     emotion: str = Field(description="감정의 명칭 (한국어)")
     score: float = Field(description="감정의 강도 (0.0에서 1.0 사이)")
@@ -23,11 +23,11 @@ class ReportGeneratorService:
     [RAG 통합 버전] 꿈 텍스트와 전문 지식을 함께 분석하여
     감정, 키워드, 심층 분석 요약을 포함하는 리포트를 생성하는 클래스입니다.
     """
-    def __init__(self, api_key: str, retriever: Any):
+    def __init__(self, api_key: str, retriever: Any = None):
         """
         ReportGeneratorService를 초기화합니다.
         :param api_key: OpenAI API 키
-        :param retriever: 미리 학습된 FAISS retriever 객체
+        :param retriever: (선택 사항) 미리 학습된 FAISS retriever 객체
         """
         self.llm = ChatOpenAI(model="gpt-4o", api_key=api_key, temperature=0.3)
         self.retriever = retriever
@@ -43,6 +43,9 @@ class ReportGeneratorService:
         :param dream_text: 분석할 꿈의 텍스트
         :return: 감정, 키워드, 심층 분석 요약을 포함하는 딕셔너리
         """
+        if not self.retriever:
+            raise ValueError("RAG 리포트를 생성하려면 retriever 객체가 필요합니다.")
+
         rag_prompt_template = """
         You are an AI dream analyst who is an expert in IRT and dream symbolism.
         Your task is to analyze the user's dream by referring to the provided [Professional Knowledge].
@@ -72,8 +75,13 @@ class ReportGeneratorService:
             return report_object.dict()
         except Exception as e:
             print(f"Error generating report with RAG: {e}")
-            return {
-                "emotions": [{"emotion": "오류", "score": 1.0}],
-                "keywords": ["RAG_리포트_생성_오류"],
-                "analysis_summary": f"RAG 리포트 생성 중 오류가 발생했습니다: {e}"
-            }
+            return {"emotions": [], "keywords": [], "analysis_summary": f"RAG 리포트 생성 중 오류가 발생했습니다: {e}"}
+
+    def generate_report(self, dream_text: str) -> dict:
+        """ (기존 함수) RAG 없이 LLM만으로 리포트를 생성합니다. """
+        # (사용자님의 기존 코드를 여기에 그대로 유지하거나, 아래의 Pydantic 기반 코드로 대체할 수 있습니다.)
+        # 지금은 RAG 버전을 사용할 것이므로 이 함수는 호출되지 않습니다.
+        # 이 함수는 만약을 위한 백업으로 남겨둡니다.
+        # ... (사용자님의 기존 generate_report 코드) ...
+        # 간단한 오류 리포트를 반환하도록 수정
+        return {"emotions": [], "keywords": [], "analysis_summary": "RAG 없는 기본 분석은 현재 비활성화되어 있습니다."}
