@@ -55,7 +55,7 @@ class STTService:
             # 바이트 데이터를 파일처럼 다루기 위해 io.BytesIO 사용
             audio_buffer = io.BytesIO(audio_bytes)
             # Whisper API가 파일 이름을 요구하는 경우가 있으므로, 임의의 이름을 지정해줍니다.
-            audio_buffer.name = "temp_audio.mp3" 
+            audio_buffer.name = "temp_audio.mp3"
             
             return self._transcribe(audio_buffer)
         except Exception as e:
