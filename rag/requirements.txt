@@ -1,7 +1,0 @@
-streamlit
-openai
-python-dotenv
-langchain
-langchain-openai
-streamlit-audiorec
-pydantic>=2.0
