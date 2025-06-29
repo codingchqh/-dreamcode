@@ -6,6 +6,7 @@ from typing import Dict, Any, Tuple, List
 from pydantic import BaseModel, Field
 from langchain_core.prompts import ChatPromptTemplate
 from langchain_openai import ChatOpenAI
+from langchain_core.output_parsers import StrOutputParser
 from langchain.output_parsers import PydanticOutputParser
 
 # Pydantic 모델 정의 (이전과 동일)
@@ -26,8 +27,8 @@ class DreamAnalyzerService:
 
     # ===> 여기가 핵심 변경 사항입니다! <===
     def create_nightmare_prompt(self, dream_text: str, dream_report: Dict[str, Any]) -> str:
-        """ 
-        악몽 텍스트와 핵심 키워드를 기반으로, 
+        """
+        악몽 텍스트와 핵심 키워드를 기반으로,
         꿈의 공포스러운 분위기를 극대화하는 DALL-E 3용 프롬프트를 생성합니다.
         """
         keywords = dream_report.get("keywords", [])
