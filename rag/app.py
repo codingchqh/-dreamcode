@@ -74,13 +74,13 @@ with col_center:
     }
     for key, value in session_defaults.items():
         if key not in st.session_state:
-            st.session_state[:key] = value
-
+            st.session_state[key] = value # <--- 이 부분 수정!
+ 
     # --- 6. 세션 상태 초기화 함수 ---
     def initialize_session_state():
         for key, value in session_defaults.items():
-            st.session_state[:key] = value
-
+            st.session_state[key] = value # <--- 이 부분 수정!
+ 
     # --- 7. UI 구성: 오디오 입력 부분 ---
     tab1, tab2 = st.tabs(["🎤 실시간 녹음하기", "📁 오디오 파일 업로드"])
     audio_bytes, file_name = None, None
