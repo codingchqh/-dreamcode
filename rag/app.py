@@ -4,8 +4,8 @@ from langchain_openai import OpenAIEmbeddings
 from langchain_community.vectorstores import FAISS
 
 # 우리가 만든 모든 서비스들을 가져옵니다.
-from core.services.dream_analyzer_service import DreamAnalyzerService
-from core.services.report_generator_service import ReportGeneratorService
+from services.dream_analyzer_service import DreamAnalyzerService
+from services.report_generator_service import ReportGeneratorService
 # from core.services.image_generator_service import ImageGeneratorService # TODO: 마지막 단계
 
 # --- 페이지 설정 및 서비스 초기화 ---
