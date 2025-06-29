@@ -79,7 +79,7 @@ with col_center:
 
     # --- 5. 세션 상태 기본값 초기화 ---
     session_defaults = {
-        "dream_text_input": "", # 텍스트 직접 입력을 위한 새로운 세션 상태 변수
+        # "dream_text_input": "", # 텍스트 직접 입력을 위한 변수 제거
         "dream_text": "", 
         "original_dream_text": "", 
         "analysis_started": False,
@@ -119,39 +119,10 @@ with col_center:
         st.session_state.nightmare_image_url = ""
         st.session_state.reconstructed_image_url = ""
 
-    # --- 7. UI 구성: 텍스트 입력 및 오디오 입력 부분 ---
-    # 텍스트 직접 입력 탭을 가장 먼저 배치
-    tab_text, tab_record, tab_upload = st.tabs(["✍️ 텍스트 직접 입력", "🎤 실시간 녹음하기", "📁 오디오 파일 업로드"])
+    # --- 7. UI 구성: 오디오 입력 부분 ---
+    # 텍스트 직접 입력 탭 제거, 오디오 입력 탭만 남김
+    tab_record, tab_upload = st.tabs(["🎤 실시간 녹음하기", "📁 오디오 파일 업로드"])
     
-    with tab_text:
-        new_text_input = st.text_area(
-            "여기에 꿈 내용을 직접 입력해주세요.", 
-            value=st.session_state.dream_text_input, 
-            height=200,
-            key="dream_text_area" # Streamlit 위젯의 고유 키
-        )
-        
-        # 텍스트 입력 값이 변경될 때만 로직 실행 (무한 rerun 방지)
-        if new_text_input != st.session_state.dream_text_input:
-            st.session_state.dream_text_input = new_text_input
-            initialize_analysis_state() # 새로운 입력이므로 모든 분석 상태 초기화
-            st.session_state.original_dream_text = st.session_state.dream_text_input
-            
-            if st.session_state.original_dream_text: # 입력된 텍스트가 있으면 안전성 검사
-                with st.spinner("입력 내용 안전성 검사 중..."):
-                    safety_result = _moderation_service.check_text_safety(st.session_state.original_dream_text)
-                if safety_result["flagged"]:
-                    st.error(safety_result["text"])
-                    st.session_state.dream_text = "" # 안전하지 않으면 비움
-                else:
-                    st.success("안전성 검사 통과!")
-                    st.session_state.dream_text = st.session_state.original_dream_text # 안전하면 할당
-            else: # 텍스트 필드가 비어 있으면 dream_text도 비움
-                st.session_state.dream_text = ""
-            
-            # 텍스트 입력 변경 시, 전체 앱을 리런하여 UI 상태를 즉시 반영
-            st.rerun()
-
     # 오디오 입력 처리 탭들
     audio_bytes_from_input = None # 이 변수는 현재 프레임에서 받은 오디오 데이터를 임시로 저장
     
@@ -160,7 +131,6 @@ with col_center:
         wav_audio_data = st_audiorec() 
         if wav_audio_data: 
             initialize_analysis_state() # 새로운 오디오 입력이므로 분석 상태 초기화
-            st.session_state.dream_text_input = "" # 텍스트 입력 필드 비움 (다른 입력 방식 선택 시 초기화)
             st.session_state.audio_data_to_process = wav_audio_data # 핵심: 오디오 데이터를 세션 상태에 저장
             st.session_state.audio_file_name = "recorded_dream.wav"
             st.rerun() # 오디오 데이터가 세션에 저장되었으니 리런하여 다음 로직으로 이동
@@ -169,7 +139,6 @@ with col_center:
         uploaded_file = st.file_uploader("악몽 오디오 파일 선택", type=["mp3", "wav", "m4a", "ogg"], key="file_uploader_widget") # key는 Streamlit 내장 위젯에 유효
         if uploaded_file: 
             initialize_analysis_state() # 새로운 오디오 입력이므로 분석 상태 초기화
-            st.session_state.dream_text_input = "" # 텍스트 입력 필드 비움 (다른 입력 방식 선택 시 초기화)
             st.session_state.audio_data_to_process = uploaded_file.getvalue() # 핵심: 오디오 데이터를 세션 상태에 저장
             st.session_state.audio_file_name = uploaded_file.name
             st.rerun() # 오디오 데이터가 세션에 저장되었으니 리런하여 다음 로직으로 이동
@@ -205,7 +174,7 @@ with col_center:
             print(f"ERROR: Audio processing failed: {e}")
         st.rerun() # STT 처리 완료 (또는 실패) 후 UI 업데이트를 위해 리런
 
-    # --- 9. 2단계: 전사된 텍스트 또는 직접 입력된 텍스트 출력 및 분석 시작 버튼 ---
+    # --- 9. 2단계: 전사된 텍스트 출력 및 분석 시작 버튼 ---
     if st.session_state.original_dream_text: 
         st.markdown("---"); st.subheader("📝 나의 악몽 이야기") # 텍스트 변환 결과 대신 더 일반적인 제목으로 변경
         st.info(st.session_state.original_dream_text) # 원본 텍스트 표시
