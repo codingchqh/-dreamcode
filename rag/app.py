@@ -42,12 +42,14 @@ class AudioFrameHandler(AudioProcessorBase):
         sound_chunk = np.concatenate(self.audio_frames)
         return io.BytesIO((sound_chunk * 32767).astype(np.int16).tobytes())
 
-# --- 3. 분석 및 결과 표시를 위한 공통 함수 (이전과 동일) ---
+# --- 3. 분석 및 결과 표시를 위한 공통 함수 ---
 def run_analysis_pipeline(dream_text):
-    # (이전과 동일)
+    # (이전과 거의 동일, 이미지 표시 상태 초기화 추가)
     if not dream_text or "오류" in dream_text or "찾을 수 없습니다" in dream_text:
         st.error(dream_text or "분석할 텍스트가 없습니다."); return
     st.session_state.analysis_results = None
+    st.session_state.show_before_image = False  # 이미지 표시 상태 초기화
+    st.session_state.show_after_image = False   # 이미지 표시 상태 초기화
     with st.spinner("RAG가 지식 베이스를 참조하여 꿈을 심층 분석 중입니다..."):
         dream_report = st.session_state.report_generator.generate_report_with_rag(dream_text)
         nightmare_prompt, reconstructed_prompt, summary, mappings = st.session_state.dream_analyzer.create_reconstructed_prompt_and_analysis(dream_text, dream_report)
@@ -57,11 +59,18 @@ def run_analysis_pipeline(dream_text):
             future_reconstructed = executor.submit(st.session_state.image_generator.generate_image_from_prompt, reconstructed_prompt)
             nightmare_image_url = future_nightmare.result()
             reconstructed_image_url = future_reconstructed.result()
-    st.session_state.analysis_results = {"dream_report": dream_report, "nightmare_image_url": nightmare_image_url, "reconstructed_image_url": reconstructed_image_url, "summary": summary, "mappings": mappings}
+    st.session_state.analysis_results = {
+        "dream_report": dream_report,
+        "nightmare_image_url": nightmare_image_url,
+        "reconstructed_image_url": reconstructed_image_url,
+        "summary": summary,
+        "mappings": mappings
+    }
 
 def display_results():
-    # (이전과 동일)
-    results = st.session_state.analysis_results; dream_report = results["dream_report"]
+    """ st.session_state에 저장된 분석 결과를 화면에 표시하고, 이미지 버튼을 제공합니다. """
+    results = st.session_state.analysis_results
+    dream_report = results["dream_report"]
     st.subheader("📝 AI 심층 분석 리포트")
     with st.container(border=True):
         st.markdown("##### 심층 분석 요약"); st.write(dream_report.get("analysis_summary", "요약 정보 없음"))
@@ -69,15 +78,25 @@ def display_results():
         for emo in dream_report.get("emotions", []): st.progress(emo['score'], text=f"{emo['emotion']} ({int(emo['score']*100)}%)")
         st.markdown("##### 핵심 키워드"); st.write(" &nbsp; ".join(f"`{kw}`" for kw in dream_report.get("keywords", [])))
     st.divider()
-    col1, col2 = st.columns(2);
+    col1, col2 = st.columns(2)
     with col1:
-        st.subheader("악몽의 시각화 (Before)");
-        if results["nightmare_image_url"].startswith("http"): st.image(results["nightmare_image_url"], caption="AI가 그린 당신의 악몽")
-        else: st.error(f"이미지 생성 실패: {results['nightmare_image_url']}")
+        st.subheader("악몽의 시각화 (Before)")
+        if st.button("악몽 이미지 보기", key="show_before"):
+            st.session_state.show_before_image = True
+        if st.session_state.show_before_image:
+            if results["nightmare_image_url"].startswith("http"):
+                st.image(results["nightmare_image_url"], caption="AI가 그린 당신의 악몽")
+            else:
+                st.error(f"이미지 생성 실패: {results['nightmare_image_url']}")
     with col2:
-        st.subheader("재구성된 꿈 (After)");
-        if results["reconstructed_image_url"].startswith("http"): st.image(results["reconstructed_image_url"], caption="AI가 긍정적으로 재구성한 꿈")
-        else: st.error(f"이미지 생성 실패: {results['reconstructed_image_url']}")
+        st.subheader("재구성된 꿈 (After)")
+        if st.button("재구성된 꿈 이미지 보기", key="show_after"):
+            st.session_state.show_after_image = True
+        if st.session_state.show_after_image:
+            if results["reconstructed_image_url"].startswith("http"):
+                st.image(results["reconstructed_image_url"], caption="AI가 긍정적으로 재구성한 꿈")
+            else:
+                st.error(f"이미지 생성 실패: {results['reconstructed_image_url']}")
     st.divider()
     st.subheader("✨ 이렇게 바뀌었어요!"); st.write(results["summary"])
     for mapping in results["mappings"]: st.markdown(f"- `{mapping['original']}` &nbsp; ➡️ &nbsp; **`{mapping['transformed']}`**")
@@ -90,29 +109,33 @@ def handle_file_upload():
             audio_bytes = st.session_state.file_uploader.getvalue()
             st.session_state.transcribed_text = st.session_state.stt_service.transcribe_from_bytes(audio_bytes)
             st.session_state.analysis_results = None # 새 파일이 올라왔으니 이전 분석 결과 초기화
+            st.session_state.show_before_image = False # 이미지 표시 상태 초기화
+            st.session_state.show_after_image = False  # 이미지 표시 상태 초기화
 
 # --- 5. 메인 앱 실행 ---
 def main():
     st.title("보여DREAM 🌙")
     st.write("당신의 꿈 이야기를 들려주세요. AI가 악몽을 분석하고 긍정적인 이미지로 재구성해 드립니다.")
-    
+
     st.session_state.report_generator, st.session_state.dream_analyzer, st.session_state.image_generator, st.session_state.stt_service = initialize_services()
 
     if "transcribed_text" not in st.session_state: st.session_state.transcribed_text = ""
     if "analysis_results" not in st.session_state: st.session_state.analysis_results = None
+    if "show_before_image" not in st.session_state: st.session_state.show_before_image = False
+    if "show_after_image" not in st.session_state: st.session_state.show_after_image = False
 
     tab1, tab2, tab3 = st.tabs(["✍️ 텍스트로 입력", "⬆️ 파일 업로드", "🎤 실시간 녹음"])
-    
+
     with tab1:
         text_input = st.text_area("어젯밤 어떤 꿈을 꾸셨나요?", height=200, key="text_input_area")
         if st.button("분석 시작 (텍스트)", type="primary", use_container_width=True):
-            st.session_state.transcribed_text = text_input # 분석할 텍스트를 세션에 저장
+            st.session_state.transcribed_text = text_input
             run_analysis_pipeline(st.session_state.transcribed_text)
 
     with tab2:
         # on_change 콜백을 사용하여 파일이 업로드되면 handle_file_upload 함수가 자동 실행됨
         st.file_uploader("음성 파일(mp3, wav 등)을 업로드하세요.", type=['mp3', 'm4a', 'wav', 'ogg'], key="file_uploader", on_change=handle_file_upload)
-        
+
         # 텍스트가 변환되면, 텍스트 영역과 분석 버튼이 나타남
         if st.session_state.transcribed_text:
             st.text_area("**변환된 텍스트** (수정 가능)", value=st.session_state.transcribed_text, height=150, key="transcribed_text_area")
@@ -122,21 +145,23 @@ def main():
     with tab3:
         st.write("아래 'START' 버튼을 누르고 마이크에 꿈 이야기를 녹음하세요.")
         webrtc_ctx = webrtc_streamer(key="audio-recorder", mode=WebRtcMode.SENDONLY, audio_processor_factory=AudioFrameHandler)
-        
+
         if webrtc_ctx.audio_processor and st.button("녹음 완료 및 텍스트 변환", use_container_width=True):
             audio_bytes_io = webrtc_ctx.audio_processor.get_audio_bytes()
             if audio_bytes_io:
                 with st.spinner("녹음된 오디오를 텍스트로 변환합니다..."):
                     st.session_state.transcribed_text = st.session_state.stt_service.transcribe_from_bytes(audio_bytes_io.getvalue())
-                    st.session_state.analysis_results = None # 새 녹음이므로 이전 분석 결과 초기화
+                    st.session_state.analysis_results = None
+                    st.session_state.show_before_image = False # 이미지 표시 상태 초기화
+                    st.session_state.show_after_image = False  # 이미지 표시 상태 초기화
             else: st.warning("녹음된 내용이 없습니다.")
-            
+
         if st.session_state.transcribed_text:
             st.text_area("**변환된 텍스트** (수정 가능)", value=st.session_state.transcribed_text, height=150, key="mic_text_area")
             if st.button("분석 시작 (녹음 내용)", type="primary", use_container_width=True):
                 run_analysis_pipeline(st.session_state.transcribed_text)
 
-    # st.session_state에 분석 결과가 있으면 항상 화면에 표시
+    # st.session_state에 분석 결과가 있으면 결과 표시 함수 호출
     if st.session_state.analysis_results:
         display_results()
 
