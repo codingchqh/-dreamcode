@@ -22,16 +22,16 @@ def build_vector_store():
     try:
         # .md 파일 로더
         md_loader = DirectoryLoader(
-            './data/', 
-            glob="**/*.md", 
-            loader_cls=TextLoader, 
+            './data/',
+            glob="**/*.md",
+            loader_cls=TextLoader,
             loader_kwargs={'encoding': 'utf-8'}
         )
         # .txt 파일 로더
         txt_loader = DirectoryLoader(
-            './data/', 
-            glob="**/*.txt", 
-            loader_cls=TextLoader, 
+            './data/',
+            glob="**/*.txt",
+            loader_cls=TextLoader,
             loader_kwargs={'encoding': 'utf-8'}
         )
         
