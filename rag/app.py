@@ -63,7 +63,7 @@ with col_center_main: # 로고와 주요 콘텐츠가 들어갈 중앙 컬럼
         st.markdown(
             f"""
             <div style="display: flex; align-items: center; justify-content: center; margin-bottom: 20px;">
-                <img src="data:image/png;base64,{logo_base64}" width="80" style="margin-right: 15px;"/>
+                <img src="data:image/png;base64,{logo_base64}" width="150" style="margin-right: 15px;"/>
                 <h1 style="margin: 0; white-space: nowrap; font-size: 3em;">보여dream 🌙</h1>
             </div>
             """,
@@ -77,7 +77,7 @@ with col_center_main: # 로고와 주요 콘텐츠가 들어갈 중앙 컬럼
     
     with col_chatbot_img:
         if navimong_chatbot_image_exists:
-            st.image(navimong_chatbot_image_path, width=60) # 이미지 크기 60으로 설정
+            st.image(navimong_chatbot_image_path, width=150) # 이미지 크기 60으로 설정
     
     with col_text:
         st.markdown("<h3 style='margin-top: 15px; margin-left: 0px;'>악몽을 녹음하거나 파일을 업로드해 주세요.</h3>", unsafe_allow_html=True)
@@ -90,9 +90,9 @@ with col_center_main: # 로고와 주요 콘텐츠가 들어갈 중앙 컬럼
         "dream_text": "", "original_dream_text": "", "analysis_started": False,
         "audio_processed": False, "derisked_text": "", "dream_report": None,
         "nightmare_prompt": "", "reconstructed_prompt": "", "transformation_summary": "",
-        "keyword_mappings": [], # 키워드 변환 매핑 저장을 위해 추가
+        "keyword_mappings": [], # 키워드 변환 매핑 저장을 위해 추가 (예: [{'original': '악마', 'transformed': '수호천사'}])
         "nightmare_image_url": "", "reconstructed_image_url": "",
-        "nightmare_keywords": [], # 악몽 키워드 저장을 위해 추가 (추가됨)
+        "nightmare_keywords": [], # 악몽 키워드 저장을 위해 추가 (리포트에서 직접 추출된 키워드)
     }
     for key, value in session_defaults.items():
         if key not in st.session_state:
@@ -151,7 +151,7 @@ with col_center_main: # 로고와 주요 콘텐츠가 들어갈 중앙 컬럼
             with st.spinner("RAG가 지식 베이스를 참조하여 리포트를 생성하는 중... 🧠"):
                 report = _report_generator_service.generate_report_with_rag(st.session_state.original_dream_text)
                 st.session_state.dream_report = report
-                # 리포트에서 키워드를 세션 상태에 저장
+                # 리포트에서 키워드를 세션 상태에 저장 (이 키워드들이 악몽 프롬프트 강조에 사용됨)
                 st.session_state.nightmare_keywords = report.get("keywords", []) 
                 st.rerun()
         else:
@@ -178,6 +178,7 @@ with col_center_main: # 로고와 주요 콘텐츠가 들어갈 중앙 컬럼
         with col1:
             if st.button("😱 악몽 이미지 그대로 보기"):
                 with st.spinner("악몽을 시각화하는 중..."):
+                    # create_nightmare_prompt는 original_dream_text와 dream_report를 기반으로 프롬프트 생성
                     prompt = _dream_analyzer_service.create_nightmare_prompt(
                         st.session_state.original_dream_text,
                         st.session_state.dream_report
@@ -188,6 +189,7 @@ with col_center_main: # 로고와 주요 콘텐츠가 들어갈 중앙 컬럼
         with col2:
             if st.button("✨ 재구성된 꿈 이미지 보기"):
                 with st.spinner("악몽을 긍정적인 꿈으로 재구성하는 중..."):
+                    # create_reconstructed_prompt_and_analysis는 original_dream_text와 dream_report를 기반으로 재구성 프롬프트, 요약, 키워드 매핑 생성
                     reconstructed_prompt, transformation_summary, keyword_mappings = \
                         _dream_analyzer_service.create_reconstructed_prompt_and_analysis(
                             st.session_state.original_dream_text,
@@ -201,26 +203,23 @@ with col_center_main: # 로고와 주요 콘텐츠가 들어갈 중앙 컬럼
 
     # --- 12. 5단계: 생성된 이미지 표시 및 키워드 강조 ---
     # 키워드에 색상을 입히는 헬퍼 함수
-    # Look-behind (긍정적/부정적) 어설션을 제거하여 're.error'를 해결합니다.
     def highlight_keywords(text, keywords, color="red"):
         # 키워드 리스트를 정규표현식에 사용할 수 있도록 이스케이프하고 '|'로 연결
         # 가장 긴 키워드가 먼저 매치되도록 역순 정렬 (더 정확한 매칭을 위해)
-        sorted_keywords = sorted(keywords, key=len, reverse=True)
         
-        # 각 키워드에 대해 치환 수행
-        for keyword in sorted_keywords:
-            # HTML 태그 안에 있는 텍스트는 건너뛰도록 하는 정규식 (복잡성 증가 및 완벽하지 않을 수 있음)
-            # 여기서는 간단하게 look-behind를 제거하여 오류를 피합니다.
-            # keyword가 이미 <span style="...">...</span> 형태인지 확인하여 중복 강조 방지
-            if f"<span style='color:{color};" in text and f">{keyword}</span>" in text:
-                continue # 이미 강조된 키워드는 건너_stt_service
-
-            # 단어 경계 (\b)를 사용하여 정확한 단어만 일치시키고, 대소문자 구분 없음 (re.IGNORECASE)
-            # re.escape()는 키워드 내의 특수문자가 정규식 문자로 해석되는 것을 방지합니다.
-            # 이 패턴은 더 이상 look-behind를 사용하지 않습니다.
-            pattern = r'\b' + re.escape(keyword) + r'\b'
-            text = re.sub(pattern, f"<span style='color:{color}; font-weight:bold;'>{keyword}</span>", text, flags=re.IGNORECASE)
-        return text
+        processed_text = text
+        for keyword in sorted(keywords, key=len, reverse=True):
+            escaped_keyword = re.escape(keyword)
+            
+            # **수정된 부분: 단순한 단어 경계 매칭으로 돌아가 re.error를 완전히 방지합니다.**
+            # 이 패턴은 이미 태그로 감싸진 키워드도 다시 감쌀 수 있지만,
+            # Streamlit의 Markdown 렌더링은 중첩된 <span> 태그를 대부분 올바르게 처리합니다.
+            pattern = r'\b' + escaped_keyword + r'\b'
+            
+            # re.sub를 사용하여 직접 치환합니다. flags=re.IGNORECASE는 대소문자 무시를 위함.
+            processed_text = re.sub(pattern, f"<span style='color:{color}; font-weight:bold;'>{keyword}</span>", processed_text, flags=re.IGNORECASE)
+            
+        return processed_text
 
     if (st.session_state.nightmare_image_url and st.session_state.nightmare_image_url.startswith("http")) or \
        (st.session_state.reconstructed_image_url and st.session_state.reconstructed_image_url.startswith("http")):
@@ -230,31 +229,14 @@ with col_center_main: # 로고와 주요 콘텐츠가 들어갈 중앙 컬럼
             if st.session_state.nightmare_image_url.startswith("http"):
                 st.image(st.session_state.nightmare_image_url, caption="악몽 시각화")
                 with st.expander("생성 프롬프트 및 주요 키워드 보기"):
-                    # --- 악몽 프롬프트 키워드 리스트 (수정됨: AI 포함 및 부정적 키워드 추가) ---
-                    # 여기에 AI 모델이 실제로 추출한 키워드 + 이미지 분석을 위한 추가 키워드를 통합합니다.
-                    # 'AI' 단어는 명시적으로 추가하여 항상 강조되도록 합니다.
-                    nightmare_keywords_from_report = st.session_state.nightmare_keywords
-                    additional_negative_keywords = [
-                        'cold', 'dystopian', 'sterile', 'digital landscape', 'unstable',
-                        'fractured', 'frozen moment', 'glitching sun', 'metallic', 'emotionless tone',
-                        'hollow', 'pixelated', 'crumbling code', 'oppressive', 'cold blue',
-                        'sterile white light', 'long shadows', 'corrupted data', 'glitching pixels',
-                        'breakdown of perceived reality', 'haunting manifestation', 'dominance',
-                        'oppressive silence', 'chilling', 'disembodied voice', 'cold, digital chaos',
-                        'reverting', 'facade of happiness', 'underlying horror', 'prison',
-                        'beautiful illusions', 'unsettling paranoia', 'insidious simulation',
-                        'AI' # AI 단어 자체도 강조
-                    ]
-                    # 두 리스트를 합치고 중복 제거
-                    all_nightmare_keywords_for_highlight = list(set(nightmare_keywords_from_report + additional_negative_keywords))
-
-
+                    # --- 악몽 프롬프트 키워드 리스트 (오직 서비스에서 추출된 키워드만 사용) ---
+                    all_nightmare_keywords_for_highlight = st.session_state.nightmare_keywords 
+                    
                     highlighted_nightmare_prompt = highlight_keywords(st.session_state.nightmare_prompt, all_nightmare_keywords_for_highlight, "red")
                     st.markdown(f"**프롬프트:** {highlighted_nightmare_prompt}", unsafe_allow_html=True)
                     
                     if all_nightmare_keywords_for_highlight: 
                         st.markdown("---")
-                        # 키워드 목록도 빨간색으로 강조
                         highlighted_list = [f"<span style='color:red; font-weight:bold;'>{k}</span>" for k in all_nightmare_keywords_for_highlight]
                         st.markdown(f"**주요 키워드:** {', '.join(highlighted_list)}", unsafe_allow_html=True)
             elif st.session_state.nightmare_image_url:
@@ -263,13 +245,11 @@ with col_center_main: # 로고와 주요 콘텐츠가 들어갈 중앙 컬럼
             if st.session_state.reconstructed_image_url.startswith("http"):
                 st.image(st.session_state.reconstructed_image_url, caption="재구성된 꿈")
                 with st.expander("생성 프롬프트 및 변환 과정 보기"):
-                    # 재구성 프롬프트에 변환된 키워드 색상 적용
-                    highlighted_reconstructed_prompt = st.session_state.reconstructed_prompt
-                    transformed_keywords_display_list = [] # 화면에 표시할 변환된 키워드 리스트
-                    
-                    # keyword_mappings에서 변환된 키워드를 가져와 하이라이트
-                    transformed_only_keywords = [mapping.get('transformed', '') for mapping in st.session_state.keyword_mappings if mapping.get('transformed')]
-                    highlighted_reconstructed_prompt = highlight_keywords(highlighted_reconstructed_prompt, transformed_only_keywords, "green")
+                    # --- 재구성 프롬프트 키워드 리스트 (오직 변환된 키워드만 사용) ---
+                    transformed_only_keywords_from_mapping = [mapping.get('transformed', '') for mapping in st.session_state.keyword_mappings if mapping.get('transformed')]
+                    all_reconstructed_keywords_for_highlight = transformed_only_keywords_from_mapping
+
+                    highlighted_reconstructed_prompt = highlight_keywords(st.session_state.reconstructed_prompt, all_reconstructed_keywords_for_highlight, "green")
                     
                     st.markdown(f"**프롬프트:** {highlighted_reconstructed_prompt}", unsafe_allow_html=True)
                     st.markdown("---")
@@ -278,6 +258,7 @@ with col_center_main: # 로고와 주요 콘텐츠가 들어갈 중앙 컬럼
                     
                     # 변환된 키워드 목록을 '원본(빨간색) → 변환(초록색)' 형식으로 표시
                     if st.session_state.keyword_mappings:
+                        transformed_keywords_display_list = []
                         for mapping in st.session_state.keyword_mappings:
                             original = mapping.get('original', 'N/A')
                             transformed = mapping.get('transformed', 'N/A')
