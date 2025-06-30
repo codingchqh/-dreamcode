@@ -202,12 +202,12 @@ with col_center: # 모든 UI 요소를 이 중앙 컬럼 안에 배치합니다.
         st.rerun() # UI 갱신을 위해 재실행
 
     # --- 9. 2단계: 전사된 텍스트 출력 및 분석 시작 버튼 ---
-    if st.session_state.original_dream_text: 
+    if st.session_state.original_dream_text:
         st.markdown("---")
         st.subheader("📝 나의 악몽 이야기 (텍스트 변환 결과)")
         st.info(st.session_state.original_dream_text)
 
-        if st.session_state.dream_text and not st.session_state.analysis_started: 
+        if st.session_state.dream_text and not st.session_state.analysis_started:
             if st.button("✅ 이 내용으로 꿈 분석하기"):
                 st.session_state.analysis_started = True
                 st.rerun()
@@ -268,29 +268,29 @@ with col_center: # 모든 UI 요소를 이 중앙 컬럼 안에 배치합니다.
                 with st.spinner("악몽을 시각화하는 중... 잠시만 기다려주세요."):
                     # _dream_analyzer_service.create_nightmare_prompt 함수 호출 시 인자 추가 (수정됨)
                     prompt = _dream_analyzer_service.create_nightmare_prompt(
-                        st.session_state.original_dream_text, 
-                        st.session_state.dream_report 
+                        st.session_state.original_dream_text,
+                        st.session_state.dream_report
                     )
                     st.session_state.nightmare_prompt = prompt
                     nightmare_image_url = _image_generator_service.generate_image_from_prompt(prompt)
                     st.session_state.nightmare_image_url = nightmare_image_url
-                    st.rerun() 
+                    st.rerun()
 
         with col2:
             if st.button("✨ 재구성된 꿈 이미지 보기"):
                 with st.spinner("악몽을 긍정적인 꿈으로 재구성하는 중... 🌈"):
                     reconstructed_prompt, transformation_summary, keyword_mappings = \
                         _dream_analyzer_service.create_reconstructed_prompt_and_analysis(
-                            st.session_state.original_dream_text, 
-                            st.session_state.dream_report 
+                            st.session_state.original_dream_text,
+                            st.session_state.dream_report
                         )
                     st.session_state.reconstructed_prompt = reconstructed_prompt
                     st.session_state.transformation_summary = transformation_summary
-                    st.session_state.keyword_mappings = keyword_mappings 
+                    st.session_state.keyword_mappings = keyword_mappings
                     
                     reconstructed_image_url = _image_generator_service.generate_image_from_prompt(reconstructed_prompt)
                     st.session_state.reconstructed_image_url = reconstructed_image_url
-                    st.rerun() 
+                    st.rerun()
 
     # --- 12. 5단계: 생성된 이미지 표시 및 키워드 강조 ---
     # 키워드에 색상을 입히는 헬퍼 함수
@@ -340,12 +340,12 @@ with col_center: # 모든 UI 요소를 이 중앙 컬럼 안에 배치합니다.
                     st.image(st.session_state.nightmare_image_url, caption="악몽 시각화")
                     with st.expander("생성 프롬프트 및 주요 키워드 보기"):
                         # --- 악몽 프롬프트 키워드 강조 적용 ---
-                        all_nightmare_keywords_for_highlight = st.session_state.nightmare_keywords 
+                        all_nightmare_keywords_for_highlight = st.session_state.nightmare_keywords
                         
                         highlighted_nightmare_prompt = highlight_keywords(st.session_state.nightmare_prompt, all_nightmare_keywords_for_highlight, "red")
                         st.markdown(f"**프롬프트:** {highlighted_nightmare_prompt}", unsafe_allow_html=True)
                         
-                        if all_nightmare_keywords_for_highlight: 
+                        if all_nightmare_keywords_for_highlight:
                             st.markdown("---")
                             # 강조된 키워드 리스트를 직접 출력
                             highlighted_list = [f"<span style='color:red; font-weight:bold;'>{k}</span>" for k in all_nightmare_keywords_for_highlight]
