@@ -1,5 +1,4 @@
-from openai import OpenAI, APIError
-# API 키는 생성자를 통해 주입받으므로, 여기서는 core.config를 임포트하지 않습니다.
+from openai import OpenAI, APIError # OpenAI 클라이언트 및 API 오류 클래스 임포트
 
 class ImageGeneratorService:
     """
@@ -11,7 +10,7 @@ class ImageGeneratorService:
         ImageGeneratorService를 초기화합니다.
         :param api_key: OpenAI API 키
         """
-        self.client = OpenAI(api_key=api_key)
+        self.client = OpenAI(api_key=api_key) # OpenAI 클라이언트 초기화
 
     def generate_image_from_prompt(self, prompt: str) -> str:
         """
@@ -20,30 +19,32 @@ class ImageGeneratorService:
         :return: 생성된 이미지의 URL, 또는 오류 메시지
         """
         try:
+            # DALL-E 3 모델을 사용하여 이미지 생성 요청
             response = self.client.images.generate(
-                model="dall-e-3", # DALL-E 3 모델 사용
-                prompt=prompt,
-                size="1024x1024", # 이미지 크기 (DALL-E 3에서 지원하는 크기)
-                quality="standard", # 이미지 품질 (standard 또는 hd)
-                n=1, # 생성할 이미지 개수
+                model="dall-e-3", # DALL-E 3 모델 지정
+                prompt=prompt, # 이미지 생성 프롬프트
+                size="1024x1024", # 이미지 크기 설정
+                quality="standard", # 이미지 품질 설정
+                n=1, # 생성할 이미지 개수 (1개)
             )
             
-            # 응답 데이터가 유효한지 확인하고 이미지 URL을 반환합니다.
+            # 응답 데이터에서 이미지 URL 추출 및 반환
             if response.data and len(response.data) > 0 and response.data[0].url:
                 image_url = response.data[0].url
-                print(f"이미지 생성 성공, URL: {image_url}") # 디버깅을 위해 콘솔에 출력
+                print(f"이미지 생성 성공, URL: {image_url}") # 성공 시 URL 출력
                 return image_url
             else:
+                # 응답에 유효한 URL이 없는 경우
                 print("이미지 생성 실패: 응답 데이터 없음 또는 URL 누락.")
                 return "이미지 생성 실패: 유효한 이미지 URL을 받을 수 없습니다."
 
         except APIError as e:
-            # OpenAI API 호출 중 발생한 특정 오류 (예: 잘못된 API 키, rate limit 등)
+            # OpenAI API 관련 오류 처리
             error_message = f"OpenAI API 오류 발생: 상태 코드 {e.status_code}, 메시지: {e.response.text}"
             print(error_message)
             return f"OpenAI API 오류 발생: {e.status_code} - {e.response.text}"
         except Exception as e:
-            # 그 외 예상치 못한 일반적인 오류
+            # 그 외 일반적인 오류 처리
             error_message = f"이미지 생성 중 예상치 못한 오류 발생: {e}"
             print(error_message)
             return f"이미지 생성 중 오류 발생: {e}"
