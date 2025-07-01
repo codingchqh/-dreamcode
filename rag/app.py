@@ -52,7 +52,7 @@ def get_base64_image(image_path):
 
 def translate_image_error_message(raw_error_message: str) -> str:
     if "image_generation_user_error" in raw_error_message or "safety system" in raw_error_message:
-        return "감정적 불편함을 줄 수 있는 요소는 자동 필터링되어, 안전하고 편안한 이미지로 구성되었습니다."
+        return "감정적으로 불편함을 줄 수 있는 요소는 자동 필터링되어, 안전하고 편안한 이미지로 구성되었습니다."
     if "APIConnectionError" in raw_error_message or "500" in raw_error_message:
         return "OpenAI 서버에 일시적인 문제가 발생했습니다. 잠시 후 다시 시도해 주세요."
     if "AuthenticationError" in raw_error_message:
